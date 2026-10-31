@@ -25,6 +25,14 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
+      - name: Download Emby Reference Assemblies
+        run: |
+          wget -q https://github.com/MediaBrowser/Emby.Releases/releases/download/4.8.10.0/emby-server-deb_4.8.10.0_amd64.deb
+          dpkg -x emby-server-deb_4.8.10.0_amd64.deb /tmp/emby
+          sudo mkdir -p /opt/emby-server/system
+          sudo cp /tmp/emby/opt/emby-server/system/MediaBrowser.*.dll /opt/emby-server/system/
+          rm -rf emby-server-deb_4.8.10.0_amd64.deb /tmp/emby
+
       - name: Restore Dependencies
         run: dotnet restore Emby.Plugin.IntroDbApp.csproj
 
