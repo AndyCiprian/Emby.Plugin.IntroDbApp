@@ -1,10 +1,123 @@
-<div id="IntroDbConfigurationPage" data-role="page" class="page type-interior pluginConfigurationPage" data-controller="__plugin/introdbjs_v42">
+<div id="IntroDbConfigurationPage" data-role="page" class="page type-interior pluginConfigurationPage" data-controller="__plugin/introdbjs_v421">
+    <style>
+        #IntroDbConfigurationPage {
+            color: inherit;
+        }
+        #IntroDbConfigurationPage .introdb-card {
+            background: rgba(128, 128, 128, 0.08);
+            border: 1px solid var(--line-background, rgba(128, 128, 128, 0.25));
+            border-radius: 8px;
+            padding: 1.2em;
+            margin-top: 1.5em;
+        }
+        #IntroDbConfigurationPage .introdb-metric-card {
+            background: rgba(128, 128, 128, 0.08);
+            border: 1px solid var(--line-background, rgba(128, 128, 128, 0.25));
+            border-radius: 8px;
+            padding: 1.2em;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        #IntroDbConfigurationPage .introdb-metric-title {
+            font-size: 0.85em;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: inherit;
+        }
+        #IntroDbConfigurationPage .introdb-table-container {
+            background: rgba(128, 128, 128, 0.05);
+            border-radius: 8px;
+            overflow-x: auto;
+            border: 1px solid var(--line-background, rgba(128, 128, 128, 0.25));
+        }
+        #IntroDbConfigurationPage table.introdb-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9em;
+            text-align: left;
+            color: inherit;
+        }
+        #IntroDbConfigurationPage table.introdb-table thead tr {
+            border-bottom: 1px solid var(--line-background, rgba(128, 128, 128, 0.35));
+            background: rgba(128, 128, 128, 0.12);
+            font-weight: 600;
+        }
+        #IntroDbConfigurationPage table.introdb-table th {
+            padding: 12px 16px;
+            color: inherit;
+        }
+        #IntroDbConfigurationPage table.introdb-table td {
+            padding: 10px 14px;
+            color: inherit;
+        }
+        #IntroDbConfigurationPage table.introdb-table tbody tr {
+            border-bottom: 1px solid var(--line-background, rgba(128, 128, 128, 0.15));
+        }
+        #IntroDbConfigurationPage .introdb-pre {
+            background: rgba(128, 128, 128, 0.08);
+            border: 1px solid var(--line-background, rgba(128, 128, 128, 0.25));
+            border-radius: 8px;
+            padding: 1em;
+            overflow-x: auto;
+            font-family: monospace;
+            font-size: 0.9em;
+            color: inherit;
+        }
+        #IntroDbConfigurationPage .introdb-tab-btn {
+            background: rgba(128, 128, 128, 0.08);
+            border: 1px solid var(--line-background, rgba(128, 128, 128, 0.25));
+            color: inherit;
+            border-radius: 6px;
+            font-weight: 600;
+            padding: 0.55em 1.2em;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        #IntroDbConfigurationPage .introdb-tab-btn.active {
+            background: rgba(82, 181, 75, 0.2);
+            color: #52B54B;
+            border: 1px solid #52B54B;
+        }
+        #IntroDbConfigurationPage .introdb-help-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 22px;
+            height: 22px;
+            min-width: 22px;
+            min-height: 22px;
+            border-radius: 50%;
+            background: rgba(82, 181, 75, 0.18);
+            border: 1px solid #52B54B;
+            color: #52B54B;
+            font-weight: bold;
+            font-size: 13px;
+            line-height: 1;
+            cursor: pointer;
+            padding: 0;
+            outline: none;
+            margin: 0;
+        }
+        #IntroDbConfigurationPage .introdb-banner {
+            margin-top: 0.8em;
+            padding: 0.8em 1em;
+            background: rgba(128, 128, 128, 0.08);
+            border-left: 3px solid #52B54B;
+            border-radius: 4px;
+            font-size: 0.88em;
+            line-height: 1.45;
+            color: inherit;
+        }
+    </style>
+
     <div data-role="content">
         <div class="content-primary">
             <div class="verticalSection" style="margin-bottom: 1.5em;">
                 <div class="sectionTitleContainer flex align-items-center">
                     <h2 class="sectionTitle" style="margin: 0; font-size: 1.7em; font-weight: bold; letter-spacing: -0.5px;">
-                        IntroDB.app <span id="pluginVersionBadge" style="font-size: 0.55em; background: rgba(82, 181, 75, 0.18); color: #52B54B; border: 1px solid #52B54B; padding: 3px 10px; border-radius: 6px; vertical-align: middle; font-weight: bold;">v4.2.0 Universal</span>
+                        IntroDB.app <span id="pluginVersionBadge" style="font-size: 0.55em; background: rgba(82, 181, 75, 0.18); color: #52B54B; border: 1px solid #52B54B; padding: 3px 10px; border-radius: 6px; vertical-align: middle; font-weight: bold;">v4.2.1 Universal</span>
                     </h2>
                 </div>
                 <p class="fieldDescription" style="margin-top: 0.6em; font-size: 0.95em; line-height: 1.5;">
@@ -13,11 +126,11 @@
             </div>
 
             <!-- Navegación por pestañas -->
-            <div style="display: flex; gap: 8px; border-bottom: 1px solid rgba(255, 255, 255, 0.15); margin-bottom: 1.5em; padding-bottom: 0.5em; flex-wrap: wrap;">
-                <button type="button" id="tabBtnConfig" class="raised emby-button" style="background: rgba(82, 181, 75, 0.2); color: #52B54B; border: 1px solid #52B54B; border-radius: 6px; font-weight: 600;">⚙️ Configuración</button>
-                <button type="button" id="tabBtnStats" class="raised emby-button" style="background: transparent; border-radius: 6px;">📊 Métricas & Perfiles</button>
-                <button type="button" id="tabBtnTools" class="raised emby-button" style="background: transparent; border-radius: 6px;">🛠️ Herramientas & Inspector</button>
-                <button type="button" id="tabBtnLogs" class="raised emby-button" style="background: transparent; border-radius: 6px;">📜 Registro de Eventos</button>
+            <div style="display: flex; gap: 8px; border-bottom: 1px solid var(--line-background, rgba(128, 128, 128, 0.25)); margin-bottom: 1.5em; padding-bottom: 0.6em; flex-wrap: wrap;">
+                <button type="button" id="tabBtnConfig" class="introdb-tab-btn active">⚙️ Configuración</button>
+                <button type="button" id="tabBtnStats" class="introdb-tab-btn">📊 Métricas & Perfiles</button>
+                <button type="button" id="tabBtnTools" class="introdb-tab-btn">🛠️ Herramientas & Inspector</button>
+                <button type="button" id="tabBtnLogs" class="introdb-tab-btn">📜 Registro de Eventos</button>
             </div>
 
             <!-- PESTAÑA 1: CONFIGURACIÓN -->
@@ -118,7 +231,7 @@
                     </div>
 
                     <!-- SECCIÓN API KEY & STATS DEL COLABORADOR -->
-                    <div class="verticalSection" style="margin-top: 1.8em; padding: 1.2em; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 8px;">
+                    <div class="verticalSection introdb-card">
                         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
                             <h3 class="sectionTitle" style="margin: 0;">Integración con IntroDB.app</h3>
                             <span id="apiKeyBadge" style="display: none; padding: 4px 10px; border-radius: 6px; font-size: 0.85em; font-weight: bold;"></span>
@@ -143,41 +256,41 @@
 
                         <!-- TABLA DE ESTADÍSTICAS DEL COLABORADOR -->
                         <div id="apiKeyStatsContainer" style="margin-top: 1.2em;">
-                            <h4 style="font-size: 0.9em; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.9; margin-bottom: 0.6em; color: #ffffff;">Estadísticas de la Clave de API</h4>
-                            <div style="background: rgba(255, 255, 255, 0.03); border-radius: 6px; overflow-x: auto; border: 1px solid rgba(255, 255, 255, 0.12);">
-                                <table style="width: 100%; border-collapse: collapse; font-size: 0.9em; text-align: left;">
+                            <h4 style="font-size: 0.9em; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.9; margin-bottom: 0.6em; color: inherit;">Estadísticas de la Clave de API</h4>
+                            <div class="introdb-table-container">
+                                <table class="introdb-table">
                                     <tbody>
-                                        <tr style="border-bottom: 1px solid rgba(255,255,255,0.08);">
-                                            <td style="padding: 10px 14px; opacity: 0.85;">Estado de Conexión</td>
-                                            <td id="statApiStatus" style="padding: 10px 14px; font-weight: bold; text-align: right;">No configurada</td>
-                                        </tr>
-                                        <tr style="border-bottom: 1px solid rgba(255,255,255,0.08);">
-                                            <td style="padding: 10px 14px; opacity: 0.85;">Total de Aportes Remitidos</td>
-                                            <td id="statApiTotal" style="padding: 10px 14px; font-weight: bold; text-align: right;">0</td>
-                                        </tr>
-                                        <tr style="border-bottom: 1px solid rgba(255,255,255,0.08);">
-                                            <td style="padding: 10px 14px; opacity: 0.85;">En Vivo / Aceptados (Live)</td>
-                                            <td id="statApiLive" style="padding: 10px 14px; color: #52B54B; font-weight: bold; text-align: right;">0</td>
-                                        </tr>
-                                        <tr style="border-bottom: 1px solid rgba(255,255,255,0.08);">
-                                            <td style="padding: 10px 14px; opacity: 0.85;">En Revisión (In Review)</td>
-                                            <td id="statApiPending" style="padding: 10px 14px; text-align: right;">0</td>
-                                        </tr>
-                                        <tr style="border-bottom: 1px solid rgba(255,255,255,0.08);">
-                                            <td style="padding: 10px 14px; opacity: 0.85;">Rechazados</td>
-                                            <td id="statApiRejected" style="padding: 10px 14px; text-align: right;">0</td>
-                                        </tr>
-                                        <tr style="border-bottom: 1px solid rgba(255,255,255,0.08);">
-                                            <td style="padding: 10px 14px; opacity: 0.85;">Tasa de Aceptación</td>
-                                            <td id="statApiAcceptance" style="padding: 10px 14px; font-weight: bold; text-align: right;">100%</td>
-                                        </tr>
-                                        <tr style="border-bottom: 1px solid rgba(255,255,255,0.08);">
-                                            <td style="padding: 10px 14px; opacity: 0.85;">Límite de Solicitudes (Rate Limit)</td>
-                                            <td id="statApiRateLimit" style="padding: 10px 14px; text-align: right;">100 / 100 disponibles</td>
+                                        <tr>
+                                            <td style="opacity: 0.85;">Estado de Conexión</td>
+                                            <td id="statApiStatus" style="font-weight: bold; text-align: right;">No configurada</td>
                                         </tr>
                                         <tr>
-                                            <td style="padding: 10px 14px; opacity: 0.85;">Última Comprobación</td>
-                                            <td id="statApiLastChecked" style="padding: 10px 14px; font-size: 0.88em; opacity: 0.85; text-align: right;">Nunca</td>
+                                            <td style="opacity: 0.85;">Total de Aportes Remitidos</td>
+                                            <td id="statApiTotal" style="font-weight: bold; text-align: right;">0</td>
+                                        </tr>
+                                        <tr>
+                                            <td style="opacity: 0.85;">En Vivo / Aceptados (Live)</td>
+                                            <td id="statApiLive" style="color: #52B54B; font-weight: bold; text-align: right;">0</td>
+                                        </tr>
+                                        <tr>
+                                            <td style="opacity: 0.85;">En Revisión (In Review)</td>
+                                            <td id="statApiPending" style="text-align: right;">0</td>
+                                        </tr>
+                                        <tr>
+                                            <td style="opacity: 0.85;">Rechazados</td>
+                                            <td id="statApiRejected" style="text-align: right;">0</td>
+                                        </tr>
+                                        <tr>
+                                            <td style="opacity: 0.85;">Tasa de Aceptación</td>
+                                            <td id="statApiAcceptance" style="font-weight: bold; text-align: right;">100%</td>
+                                        </tr>
+                                        <tr>
+                                            <td style="opacity: 0.85;">Límite de Solicitudes (Rate Limit)</td>
+                                            <td id="statApiRateLimit" style="text-align: right;">100 / 100 disponibles</td>
+                                        </tr>
+                                        <tr style="border-bottom: none;">
+                                            <td style="opacity: 0.85;">Última Comprobación</td>
+                                            <td id="statApiLastChecked" style="font-size: 0.88em; opacity: 0.85; text-align: right;">Nunca</td>
                                         </tr>
                                     </tbody>
                                 </table>
@@ -208,12 +321,12 @@
 
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1em; margin-top: 1.2em;">
                         <!-- TARJETA 1: TIEMPO TOTAL AHORRADO -->
-                        <div style="background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.15); padding: 1.2em; border-radius: 8px;">
+                        <div class="introdb-metric-card">
                             <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <span style="font-size: 0.85em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #ffffff;">⏱️ Tiempo Total Ahorrado</span>
-                                <button type="button" id="btnHelpTimeSaved" style="display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; min-width: 22px; min-height: 22px; border-radius: 50%; background: rgba(82, 181, 75, 0.18); border: 1px solid #52B54B; color: #52B54B; font-weight: bold; font-size: 13px; line-height: 1; cursor: pointer; padding: 0; outline: none; margin: 0;" title="Ver explicación">?</button>
+                                <span class="introdb-metric-title">⏱️ Tiempo Total Ahorrado</span>
+                                <button type="button" id="btnHelpTimeSaved" class="introdb-help-btn" title="Ver explicación">?</button>
                             </div>
-                            <div id="bannerHelpTimeSaved" style="display: none; margin-top: 0.8em; padding: 0.8em; background: rgba(0, 188, 212, 0.08); border-left: 3px solid #00bcd4; border-radius: 4px; font-size: 0.84em; line-height: 1.45; color: #ffffff;">
+                            <div id="bannerHelpTimeSaved" class="introdb-banner" style="display: none; border-left-color: #00bcd4;">
                                 Suma acumulada del tiempo ahorrado por todos los perfiles de usuario al omitir automáticamente intros (openings) y créditos finales (endings) durante la reproducción en clientes de Emby e integraciones externas.
                             </div>
                             <div id="statTimeSaved" style="font-size: 2em; font-weight: bold; margin-top: 0.2em; color: #00bcd4;">0h 0m</div>
@@ -221,12 +334,12 @@
                         </div>
 
                         <!-- TARJETA 2: COBERTURA INTROS -->
-                        <div style="background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.15); padding: 1.2em; border-radius: 8px;">
+                        <div class="introdb-metric-card">
                             <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <span style="font-size: 0.85em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #ffffff;">🟢 Cobertura de Intros</span>
-                                <button type="button" id="btnHelpIntros" style="display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; min-width: 22px; min-height: 22px; border-radius: 50%; background: rgba(82, 181, 75, 0.18); border: 1px solid #52B54B; color: #52B54B; font-weight: bold; font-size: 13px; line-height: 1; cursor: pointer; padding: 0; outline: none; margin: 0;" title="Ver explicación">?</button>
+                                <span class="introdb-metric-title">🟢 Cobertura de Intros</span>
+                                <button type="button" id="btnHelpIntros" class="introdb-help-btn" title="Ver explicación">?</button>
                             </div>
-                            <div id="bannerHelpIntros" style="display: none; margin-top: 0.8em; padding: 0.8em; background: rgba(82, 181, 75, 0.08); border-left: 3px solid #52B54B; border-radius: 4px; font-size: 0.84em; line-height: 1.45; color: #ffffff;">
+                            <div id="bannerHelpIntros" class="introdb-banner" style="display: none; border-left-color: #52B54B;">
                                 Porcentaje de episodios de tu biblioteca que disponen de marcas temporales de intro verificadas, listas para salto automático en cualquier reproductor (Web, Android TV, Infuse, Kodi, etc.).
                             </div>
                             <div id="statIntrosCovered" style="font-size: 2em; font-weight: bold; margin-top: 0.2em; color: #52B54B;">0%</div>
@@ -234,12 +347,12 @@
                         </div>
 
                         <!-- TARJETA 3: COBERTURA CRÉDITOS -->
-                        <div style="background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.15); padding: 1.2em; border-radius: 8px;">
+                        <div class="introdb-metric-card">
                             <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <span style="font-size: 0.85em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #ffffff;">🟣 Cobertura de Créditos</span>
-                                <button type="button" id="btnHelpCredits" style="display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; min-width: 22px; min-height: 22px; border-radius: 50%; background: rgba(82, 181, 75, 0.18); border: 1px solid #52B54B; color: #52B54B; font-weight: bold; font-size: 13px; line-height: 1; cursor: pointer; padding: 0; outline: none; margin: 0;" title="Ver explicación">?</button>
+                                <span class="introdb-metric-title">🟣 Cobertura de Créditos</span>
+                                <button type="button" id="btnHelpCredits" class="introdb-help-btn" title="Ver explicación">?</button>
                             </div>
-                            <div id="bannerHelpCredits" style="display: none; margin-top: 0.8em; padding: 0.8em; background: rgba(171, 71, 188, 0.08); border-left: 3px solid #ab47bc; border-radius: 4px; font-size: 0.84em; line-height: 1.45; color: #ffffff;">
+                            <div id="bannerHelpCredits" class="introdb-banner" style="display: none; border-left-color: #ab47bc;">
                                 Porcentaje de episodios y películas que cuentan con marcadores de inicio de créditos finales para saltar al siguiente episodio o evitar esperas al concluir la emisión.
                             </div>
                             <div id="statCreditsCovered" style="font-size: 2em; font-weight: bold; margin-top: 0.2em; color: #ab47bc;">0%</div>
@@ -247,12 +360,12 @@
                         </div>
 
                         <!-- TARJETA 4: APORTES INTRODB -->
-                        <div style="background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.15); padding: 1.2em; border-radius: 8px;">
+                        <div class="introdb-metric-card">
                             <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <span style="font-size: 0.85em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #ffffff;">🚀 Aportes IntroDB</span>
-                                <button type="button" id="btnHelpIntroDb" style="display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; min-width: 22px; min-height: 22px; border-radius: 50%; background: rgba(82, 181, 75, 0.18); border: 1px solid #52B54B; color: #52B54B; font-weight: bold; font-size: 13px; line-height: 1; cursor: pointer; padding: 0; outline: none; margin: 0;" title="Ver explicación">?</button>
+                                <span class="introdb-metric-title">🚀 Aportes IntroDB</span>
+                                <button type="button" id="btnHelpIntroDb" class="introdb-help-btn" title="Ver explicación">?</button>
                             </div>
-                            <div id="bannerHelpIntroDb" style="display: none; margin-top: 0.8em; padding: 0.8em; background: rgba(255, 152, 0, 0.08); border-left: 3px solid #ff9800; border-radius: 4px; font-size: 0.84em; line-height: 1.45; color: #ffffff;">
+                            <div id="bannerHelpIntroDb" class="introdb-banner" style="display: none; border-left-color: #ff9800;">
                                 Cantidad total de marcadores que IntroDB.app ha inyectado con éxito en tu servidor para rescatar intros o créditos que no estaban en TheIntroDB o en archivos locales.
                             </div>
                             <div id="statIntroDbRescued" style="font-size: 2em; font-weight: bold; margin-top: 0.2em; color: #ff9800;">+0</div>
@@ -263,29 +376,29 @@
                     <!-- Desglose por Usuario -->
                     <div style="margin-top: 2em;">
                         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.8em;">
-                            <h4 style="font-size: 1.1em; margin: 0; color: #ffffff;">👤 Estadísticas por Perfil de Usuario</h4>
-                            <button type="button" id="btnHelpUserStats" style="display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; min-width: 22px; min-height: 22px; border-radius: 50%; background: rgba(82, 181, 75, 0.18); border: 1px solid #52B54B; color: #52B54B; font-weight: bold; font-size: 13px; line-height: 1; cursor: pointer; padding: 0; outline: none; margin: 0;" title="Información sobre las métricas por perfil">?</button>
+                            <h4 style="font-size: 1.1em; margin: 0; color: inherit;">👤 Estadísticas por Perfil de Usuario</h4>
+                            <button type="button" id="btnHelpUserStats" class="introdb-help-btn" title="Información sobre las métricas por perfil">?</button>
                         </div>
 
                         <!-- BANNER EXPLICATIVO PERFILES -->
-                        <div id="bannerHelpUserStats" style="display: none; margin-bottom: 1em; padding: 1em; background: rgba(82, 181, 75, 0.08); border-left: 3px solid #52B54B; border-radius: 4px; font-size: 0.9em; line-height: 1.45; color: #ffffff;">
+                        <div id="bannerHelpUserStats" class="introdb-banner" style="display: none; margin-bottom: 1em;">
                             Métricas individualizadas de reproducción por cada cuenta de usuario configurada en Emby: contabiliza las intros omitidas, créditos saltados y el tiempo neto ahorrado por cada persona.
                         </div>
 
-                        <div style="background: rgba(255, 255, 255, 0.03); border-radius: 8px; overflow-x: auto; border: 1px solid rgba(255, 255, 255, 0.15);">
-                            <table style="width: 100%; border-collapse: collapse; font-size: 0.9em; text-align: left;">
+                        <div class="introdb-table-container">
+                            <table class="introdb-table">
                                 <thead>
-                                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.18); background: rgba(255, 255, 255, 0.09); font-weight: 600;">
-                                        <th style="padding: 12px 16px; color: #ffffff;">Perfil / Usuario</th>
-                                        <th style="padding: 12px 16px; color: #ffffff;">Intros Omitidos</th>
-                                        <th style="padding: 12px 16px; color: #ffffff;">Créditos Omitidos</th>
-                                        <th style="padding: 12px 16px; color: #ffffff;">Tiempo Ahorrado</th>
-                                        <th style="padding: 12px 16px; color: #ffffff;">Última Actividad</th>
+                                    <tr>
+                                        <th>Perfil / Usuario</th>
+                                        <th>Intros Omitidos</th>
+                                        <th>Créditos Omitidos</th>
+                                        <th>Tiempo Ahorrado</th>
+                                        <th>Última Actividad</th>
                                     </tr>
                                 </thead>
                                 <tbody id="userMetricsTableBody">
                                     <tr>
-                                        <td colspan="5" style="padding: 15px; text-align: center; opacity: 0.6; color: #ffffff;">Cargando métricas de perfiles...</td>
+                                        <td colspan="5" style="padding: 15px; text-align: center; opacity: 0.6;">Cargando métricas de perfiles...</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -293,14 +406,14 @@
                     </div>
 
                     <!-- SECCIÓN ÚLTIMO ESCANEO CON INFORMACIÓN Y TOOLTIP -->
-                    <div style="margin-top: 1.8em; padding: 1.2em; background: rgba(255, 255, 255, 0.04); border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.15);">
+                    <div class="introdb-card" style="margin-top: 1.8em;">
                         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.8em;">
-                            <h4 style="margin: 0; font-size: 1.05em; font-weight: 600; color: #ffffff;">Último Escaneo de Biblioteca</h4>
-                            <button type="button" id="btnScanHelpToggle" style="display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; min-width: 22px; min-height: 22px; border-radius: 50%; background: rgba(82, 181, 75, 0.18); border: 1px solid #52B54B; color: #52B54B; font-weight: bold; font-size: 13px; line-height: 1; cursor: pointer; padding: 0; outline: none; margin: 0;" title="Información sobre el escaneo y la memoria caché">?</button>
+                            <h4 style="margin: 0; font-size: 1.05em; font-weight: 600; color: inherit;">Último Escaneo de Biblioteca</h4>
+                            <button type="button" id="btnScanHelpToggle" class="introdb-help-btn" title="Información sobre el escaneo y la memoria caché">?</button>
                         </div>
 
                         <!-- BANNER INFORMATIVO DESPLEGABLE -->
-                        <div id="scanHelpBanner" style="display: none; margin-bottom: 1em; padding: 1em; background: rgba(82, 181, 75, 0.08); border-left: 3px solid #52B54B; border-radius: 4px; font-size: 0.9em; line-height: 1.45; color: #ffffff;">
+                        <div id="scanHelpBanner" class="introdb-banner" style="display: none; margin-bottom: 1em;">
                             <p style="margin: 0 0 0.5em 0;"><strong>ℹ️ Información sobre la Indexación y Caché:</strong></p>
                             <ul style="margin: 0; padding-left: 1.2em; opacity: 0.9;">
                                 <li><strong>Escaneo Periódico:</strong> Proceso automatizado en segundo plano que consulta IntroDB para asociar marcas de tiempo a cada elemento de la colección.</li>
@@ -309,28 +422,28 @@
                             </ul>
                         </div>
 
-                        <div style="background: rgba(255, 255, 255, 0.03); border-radius: 6px; overflow-x: auto; border: 1px solid rgba(255, 255, 255, 0.12);">
-                            <table style="width: 100%; border-collapse: collapse; font-size: 0.9em; text-align: left;">
+                        <div class="introdb-table-container">
+                            <table class="introdb-table">
                                 <tbody>
-                                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.08);">
-                                        <td style="padding: 10px 14px; opacity: 0.85;">Estado</td>
-                                        <td id="statScanState" style="padding: 10px 14px; font-weight: bold; text-align: right; color: #52B54B;">No ejecutado</td>
-                                    </tr>
-                                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.08);">
-                                        <td style="padding: 10px 14px; opacity: 0.85;">Fecha y hora</td>
-                                        <td id="statScanDate" style="padding: 10px 14px; text-align: right; color: #ffffff;">Nunca</td>
-                                    </tr>
-                                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.08);">
-                                        <td style="padding: 10px 14px; opacity: 0.85;">Duración</td>
-                                        <td id="statScanDuration" style="padding: 10px 14px; text-align: right; color: #ffffff;">0 s</td>
-                                    </tr>
-                                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.08);">
-                                        <td style="padding: 10px 14px; opacity: 0.85;">Episodios analizados en la última pasada</td>
-                                        <td id="statLastScannedItems" style="padding: 10px 14px; font-weight: bold; text-align: right; color: #ffffff;">0</td>
+                                    <tr>
+                                        <td style="opacity: 0.85;">Estado</td>
+                                        <td id="statScanState" style="font-weight: bold; text-align: right; color: #52B54B;">No ejecutado</td>
                                     </tr>
                                     <tr>
-                                        <td style="padding: 10px 14px; opacity: 0.85;">Elementos no registrados en IntroDB (Caché 404)</td>
-                                        <td id="statCached404" style="padding: 10px 14px; text-align: right; color: #ffffff;">0</td>
+                                        <td style="opacity: 0.85;">Fecha y hora</td>
+                                        <td id="statScanDate" style="text-align: right;">Nunca</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="opacity: 0.85;">Duración</td>
+                                        <td id="statScanDuration" style="text-align: right;">0 s</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="opacity: 0.85;">Episodios analizados en la última pasada</td>
+                                        <td id="statLastScannedItems" style="font-weight: bold; text-align: right;">0</td>
+                                    </tr>
+                                    <tr style="border-bottom: none;">
+                                        <td style="opacity: 0.85;">Elementos no registrados en IntroDB (Caché 404)</td>
+                                        <td id="statCached404" style="text-align: right;">0</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -348,14 +461,14 @@
                         <button type="button" id="btnRunScanNow" class="raised button-submit emby-button" style="border-radius: 6px; padding: 0.6em 1.2em;">
                             <span>▶️ Ejecutar Escaneo General de Biblioteca</span>
                         </button>
-                        <button type="button" id="btnClear404Cache" class="raised emby-button" style="background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.25); color: #ffffff; border-radius: 6px; padding: 0.6em 1.2em; font-weight: 600; cursor: pointer;">
+                        <button type="button" id="btnClear404Cache" class="raised emby-button" style="background: rgba(128, 128, 128, 0.12); border: 1px solid var(--line-background, rgba(128, 128, 128, 0.3)); color: inherit; border-radius: 6px; padding: 0.6em 1.2em; font-weight: 600; cursor: pointer;">
                             <span>🗑️ Limpiar Caché de No Encontrados (404)</span>
                         </button>
                     </div>
                     <div id="actionStatusMsg" style="margin-top: 0.8em; font-size: 0.9em; font-weight: 500;"></div>
 
                     <!-- ESCANEO RÁPIDO DE TÍTULO ESPECÍFICO -->
-                    <div style="margin-top: 1.5em; padding: 1.2em; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 8px;">
+                    <div class="introdb-card" style="margin-top: 1.5em;">
                         <h4 style="margin: 0; font-size: 1.05em; font-weight: 600; color: #52B54B;">🎯 Escaneo Específico de Título (Búsqueda Directa)</h4>
                         <p class="fieldDescription" style="margin-top: 0.4em;">
                             Escanear un título concreto de tu biblioteca por identificador IMDb sin esperar al escaneo general:
@@ -376,7 +489,7 @@
                 </div>
 
                 <!-- CENTRO DE DIAGNÓSTICO EN VIVO Y PRUEBA DE SIMULACIÓN -->
-                <div class="verticalSection" style="margin-top: 2em; padding: 1.2em; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(82, 181, 75, 0.35); border-radius: 8px;">
+                <div class="verticalSection introdb-card" style="margin-top: 2em; border-color: rgba(82, 181, 75, 0.4);">
                     <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
                         <h3 class="sectionTitle" style="margin: 0; color: #52B54B;">🩺 Centro de Diagnóstico & Prueba de Salto en Vivo</h3>
                         <span style="font-size: 0.8em; background: rgba(82, 181, 75, 0.15); color: #52B54B; border: 1px solid #52B54B; padding: 2px 8px; border-radius: 4px; font-weight: 600;">Comprobación 100% Real</span>
@@ -400,20 +513,20 @@
                     <div id="diagStatusMsg" style="margin-top: 0.6em; font-size: 0.9em; font-weight: 500;"></div>
 
                     <div style="margin-top: 0.8em;">
-                        <pre id="diagResultPre" style="display: none; background: rgba(0, 0, 0, 0.35); padding: 1em; border-radius: 6px; font-family: monospace; font-size: 0.88em; color: #ffffff; border: 1px solid rgba(255, 255, 255, 0.15); max-height: 220px; overflow-y: auto;"></pre>
+                        <pre id="diagResultPre" class="introdb-pre" style="display: none; max-height: 220px; overflow-y: auto;"></pre>
                     </div>
 
                     <!-- Simulación de Salto para Pruebas -->
-                    <div style="margin-top: 1.4em; padding-top: 1em; border-top: 1px solid rgba(255, 255, 255, 0.1);">
-                        <h4 style="margin: 0; font-size: 0.95em; color: #ffffff;">🧪 Pruebas de Simulación de Reproducción:</h4>
+                    <div style="margin-top: 1.4em; padding-top: 1em; border-top: 1px solid var(--line-background, rgba(128, 128, 128, 0.2));">
+                        <h4 style="margin: 0; font-size: 0.95em; color: inherit;">🧪 Pruebas de Simulación de Reproducción:</h4>
                         <p class="fieldDescription" style="margin-top: 0.3em;">
                             Pulsa uno de los botones para generar un salto de prueba. Comprobarás que las métricas de usuario y el tiempo ahorrado se incrementan al instante:
                         </p>
                         <div style="display: flex; gap: 10px; margin-top: 0.8em; flex-wrap: wrap;">
-                            <button type="button" id="btnSimulateIntro" class="raised emby-button" style="background: rgba(82, 181, 75, 0.2); color: #52B54B; border: 1px solid #52B54B; border-radius: 6px; font-size: 0.88em;">
+                            <button type="button" id="btnSimulateIntro" class="raised emby-button" style="background: rgba(82, 181, 75, 0.2); color: #52B54B; border: 1px solid #52B54B; border-radius: 6px; font-size: 0.88em; padding: 0.6em 1.2em;">
                                 <span>🟢 Simular Salto de Intro (+85s)</span>
                             </button>
-                            <button type="button" id="btnSimulateOutro" class="raised emby-button" style="background: rgba(171, 71, 188, 0.2); color: #ab47bc; border: 1px solid #ab47bc; border-radius: 6px; font-size: 0.88em;">
+                            <button type="button" id="btnSimulateOutro" class="raised emby-button" style="background: rgba(171, 71, 188, 0.2); color: #ab47bc; border: 1px solid #ab47bc; border-radius: 6px; font-size: 0.88em; padding: 0.6em 1.2em;">
                                 <span>🟣 Simular Salto de Créditos (+90s)</span>
                             </button>
                         </div>
@@ -422,7 +535,7 @@
                 </div>
 
                 <!-- INSPECTOR DE METADATOS (SOPORTA SERIES Y PELÍCULAS) -->
-                <div class="verticalSection" style="margin-top: 2em; padding: 1.2em; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 8px;">
+                <div class="verticalSection introdb-card" style="margin-top: 2em;">
                     <h3 class="sectionTitle">Inspector de Metadatos en Vivo</h3>
                     <p class="fieldDescription">Consulta directamente la respuesta de IntroDB.app para cualquier título de tu interés.</p>
                     
@@ -455,13 +568,12 @@
                     <div id="inspectValidationMsg" style="margin-top: 0.6em; font-size: 0.9em; font-weight: 500;"></div>
 
                     <div style="margin-top: 1em;">
-                        <!-- PRE CON ALTO CONTRASTE Y LEGIBILIDAD -->
-                        <pre id="inspectResult" style="background: rgba(255, 255, 255, 0.04); padding: 1.2em; border-radius: 8px; overflow-x: auto; max-height: 250px; font-family: monospace; font-size: 0.9em; color: #ffffff; border: 1px solid rgba(255, 255, 255, 0.16);">Los resultados de la consulta aparecerán aquí...</pre>
+                        <pre id="inspectResult" class="introdb-pre" style="max-height: 250px;">Los resultados de la consulta aparecerán aquí...</pre>
                     </div>
                 </div>
 
                 <!-- CONTRIBUCIÓN COMUNITARIA (SOPORTA SERIES Y PELÍCULAS) -->
-                <div class="verticalSection" style="margin-top: 2em; padding: 1.2em; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 8px;">
+                <div class="verticalSection introdb-card" style="margin-top: 2em;">
                     <h3 class="sectionTitle" style="color: #52B54B;">🤝 Contribuir Segmentos a la Comunidad (IntroDB.app)</h3>
                     <p class="fieldDescription">Si posees los timestamps exactos de un episodio o película que aún no está en IntroDB, puedes enviarlo directamente a la base de datos comunitaria usando tu clave de API.</p>
 
@@ -520,22 +632,22 @@
                         <h3 class="sectionTitle" style="margin: 0;">Registro de Eventos</h3>
                         <div style="display: flex; gap: 8px;">
                             <button type="button" id="btnRefreshLogs" class="raised emby-button" style="font-size: 0.85em; border-radius: 6px;">🔄 Actualizar</button>
-                            <button type="button" id="btnClearLogs" class="raised emby-button" style="font-size: 0.85em; border-radius: 6px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.25); color: #ffffff;">🗑️ Limpiar Registro</button>
+                            <button type="button" id="btnClearLogs" class="raised emby-button" style="font-size: 0.85em; border-radius: 6px; background: rgba(128, 128, 128, 0.12); border: 1px solid var(--line-background, rgba(128, 128, 128, 0.3)); color: inherit;">🗑️ Limpiar Registro</button>
                         </div>
                     </div>
-                    <div style="margin-top: 1em; background: rgba(255, 255, 255, 0.03); border-radius: 8px; max-height: 420px; overflow-y: auto; border: 1px solid rgba(255, 255, 255, 0.15);">
-                        <table style="width: 100%; border-collapse: collapse; font-size: 0.9em; text-align: left;">
+                    <div class="introdb-table-container" style="margin-top: 1em; max-height: 420px; overflow-y: auto;">
+                        <table class="introdb-table">
                             <thead>
-                                <tr style="border-bottom: 1px solid rgba(255,255,255,0.18); background: rgba(255, 255, 255, 0.09); font-weight: 600;">
-                                    <th style="padding: 12px 16px; color: #ffffff;">Hora</th>
-                                    <th style="padding: 12px 16px; color: #ffffff;">Elemento</th>
-                                    <th style="padding: 12px 16px; color: #ffffff;">Acción</th>
-                                    <th style="padding: 12px 16px; color: #ffffff;">Detalles</th>
+                                <tr>
+                                    <th>Hora</th>
+                                    <th>Elemento</th>
+                                    <th>Acción</th>
+                                    <th>Detalles</th>
                                 </tr>
                             </thead>
                             <tbody id="logsTableBody">
                                 <tr>
-                                    <td colspan="4" style="padding: 15px; text-align: center; opacity: 0.6; color: #ffffff;">Cargando registro de eventos...</td>
+                                    <td colspan="4" style="padding: 15px; text-align: center; opacity: 0.6;">Cargando registro de eventos...</td>
                                 </tr>
                             </tbody>
                         </table>

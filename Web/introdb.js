@@ -23,15 +23,17 @@ define([], function () {
             tab.btn.addEventListener('click', function () {
                 tabBtns.forEach(function (t) {
                     if (t.btn && t.content) {
-                        t.btn.style.background = 'transparent';
-                        t.btn.style.color = '';
-                        t.btn.style.borderColor = 'transparent';
+                        t.btn.classList.remove('active');
+                        t.btn.style.background = 'rgba(128, 128, 128, 0.08)';
+                        t.btn.style.color = 'inherit';
+                        t.btn.style.borderColor = 'var(--line-background, rgba(128, 128, 128, 0.25))';
                         t.content.style.display = 'none';
                     }
                 });
+                tab.btn.classList.add('active');
                 tab.btn.style.background = 'rgba(82, 181, 75, 0.2)';
                 tab.btn.style.color = '#52B54B';
-                tab.btn.style.border = '1px solid #52B54B';
+                tab.btn.style.borderColor = '#52B54B';
                 tab.content.style.display = 'block';
 
                 if (tab.onLoad) {
@@ -367,7 +369,6 @@ define([], function () {
                 config.IsApiKeyVerified = true;
                 config.ApiKeyStatusMessage = page._verifiedKeyMessage || "Clave de API verificada y activa en IntroDB.app.";
             } else {
-                // Si la clave no ha sido verificada en vivo o fue rechazada, guardar como no verificada
                 config.IsApiKeyVerified = false;
                 config.ApiKeyStatusMessage = "Clave no verificada. Presione 'Verificar Clave'.";
             }
@@ -392,19 +393,19 @@ define([], function () {
     function renderUserTable(users, tbody) {
         if (!tbody) return;
         if (!users || !users.length) {
-            tbody.innerHTML = '<tr><td colspan="5" style="padding: 15px; text-align: center; opacity: 0.6; color: #ffffff;">Aún no hay reproducciones registradas por usuarios.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" style="padding: 15px; text-align: center; opacity: 0.6;">Aún no hay reproducciones registradas por usuarios.</td></tr>';
             return;
         }
 
         var html = '';
         users.forEach(function (u) {
             var lastAct = u.LastActivity ? new Date(u.LastActivity).toLocaleString() : 'Reciente';
-            html += '<tr style="border-bottom: 1px solid rgba(255,255,255,0.08);">';
+            html += '<tr style="border-bottom: 1px solid var(--line-background, rgba(128, 128, 128, 0.15));">';
             html += '<td style="padding: 10px 14px; font-weight: bold; color: #52B54B;">' + (u.UserName || 'Usuario') + '</td>';
             html += '<td style="padding: 10px 14px; color: #52B54B;">' + (u.IntrosSkipped || 0) + '</td>';
             html += '<td style="padding: 10px 14px; color: #ab47bc;">' + (u.OutrosSkipped || 0) + '</td>';
             html += '<td style="padding: 10px 14px; font-weight: 500; color: #00bcd4;">' + formatTime(u.SecondsSaved || 0) + '</td>';
-            html += '<td style="padding: 10px 14px; opacity: 0.85; font-size: 0.88em; color: #ffffff;">' + lastAct + '</td>';
+            html += '<td style="padding: 10px 14px; opacity: 0.85; font-size: 0.88em;">' + lastAct + '</td>';
             html += '</tr>';
         });
         tbody.innerHTML = html;
@@ -503,14 +504,14 @@ define([], function () {
     function loadLogs(page) {
         var tbody = page.querySelector('#logsTableBody');
         if (!tbody) return;
-        tbody.innerHTML = '<tr><td colspan="4" style="padding: 15px; text-align: center; color: #ffffff;">Consultando registros...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="4" style="padding: 15px; text-align: center;">Consultando registros...</td></tr>';
 
         ApiClient.getJSON(ApiClient.getUrl("IntroDbApp/Logs")).then(function (logs) {
             if (typeof logs === 'string') {
                 try { logs = JSON.parse(logs); } catch (e) {}
             }
             if (!logs || !logs.length) {
-                tbody.innerHTML = '<tr><td colspan="4" style="padding: 15px; text-align: center; opacity: 0.6; color: #ffffff;">No hay eventos registrados recientemente.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="4" style="padding: 15px; text-align: center; opacity: 0.6;">No hay eventos registrados recientemente.</td></tr>';
                 return;
             }
 
@@ -519,7 +520,7 @@ define([], function () {
                 var time = log.Timestamp ? new Date(log.Timestamp).toLocaleTimeString() : "";
                 
                 var dot = "🟢";
-                var actionColor = "#ffffff";
+                var actionColor = "#52B54B";
                 if (log.Level === "warn") {
                     dot = "🟡";
                     actionColor = "#ffd54f";
@@ -528,11 +529,11 @@ define([], function () {
                     actionColor = "#ef5350";
                 }
 
-                html += '<tr style="border-bottom: 1px solid rgba(255,255,255,0.08);">';
-                html += '<td style="padding: 10px 14px; opacity: 0.85; font-family: monospace; white-space: nowrap; color: #ffffff;">' + time + '</td>';
-                html += '<td style="padding: 10px 14px; font-weight: 500; color: #ffffff;">' + (log.Title || "") + '</td>';
+                html += '<tr style="border-bottom: 1px solid var(--line-background, rgba(128, 128, 128, 0.15));">';
+                html += '<td style="padding: 10px 14px; opacity: 0.85; font-family: monospace; white-space: nowrap;">' + time + '</td>';
+                html += '<td style="padding: 10px 14px; font-weight: 500;">' + (log.Title || "") + '</td>';
                 html += '<td style="padding: 10px 14px; font-weight: 600; color: ' + actionColor + ';">' + dot + ' ' + (log.Action || "") + '</td>';
-                html += '<td style="padding: 10px 14px; opacity: 0.9; font-size: 0.92em; color: #ffffff;">' + (log.Details || "") + '</td>';
+                html += '<td style="padding: 10px 14px; opacity: 0.9; font-size: 0.92em;">' + (log.Details || "") + '</td>';
                 html += '</tr>';
             });
             tbody.innerHTML = html;
