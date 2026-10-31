@@ -67,6 +67,7 @@ namespace IntroDbApp.Services
     {
         public bool IsIntro { get; set; } = true;
         public long Seconds { get; set; } = 85;
+        public string? ImdbId { get; set; }
     }
 
     [Route("/IntroDbApp/DiagnoseItem", "GET", Summary = "Diagnostica los marcadores de capítulos en Emby para un título")]
@@ -122,7 +123,7 @@ namespace IntroDbApp.Services
 
             return new
             {
-                Version = "4.2.1",
+                Version = "4.2.2",
                 LastScanStatus = lastScanRaw,
                 LastScanState = scanState,
                 LastScanDate = scanDate,
@@ -384,8 +385,80 @@ namespace IntroDbApp.Services
             var config = Plugin.Instance?.Configuration;
             if (config == null) return new { Success = false, Message = "Configuración no disponible." };
 
-            long secs = request.Seconds > 0 ? request.Seconds : (request.IsIntro ? 85 : 90);
-            
+            if (string.IsNullOrWhiteSpace(request.ImdbId))
+            {
+                return new 
+                { 
+                    Success = false, 
+                    Message = "Campo obligatorio: Debes ingresar un identificador IMDb válido en el campo superior antes de simular el salto para asociar la reproducción a un medio real." 
+                };
+            }
+
+            string cleanImdb = request.ImdbId.Trim();
+
+            var episodes = _libraryManager.GetItemList(new InternalItemsQuery
+            {
+                IncludeItemTypes = new[] { nameof(Episode) },
+                IsVirtualItem = false,
+                Recursive = true
+            }).OfType<Episode>().Where(ep =>
+            {
+                var series = ep.Series;
+                var id = series?.GetProviderId(MetadataProviders.Imdb) ?? ep.GetProviderId(MetadataProviders.Imdb);
+                return string.Equals(id, cleanImdb, StringComparison.OrdinalIgnoreCase);
+            }).ToList();
+
+            var movies = _libraryManager.GetItemList(new InternalItemsQuery
+            {
+                IncludeItemTypes = new[] { nameof(Movie) },
+                IsVirtualItem = false,
+                Recursive = true
+            }).OfType<Movie>().Where(m =>
+            {
+                var id = m.GetProviderId(MetadataProviders.Imdb);
+                return string.Equals(id, cleanImdb, StringComparison.OrdinalIgnoreCase);
+            }).ToList();
+
+            if (episodes.Count == 0 && movies.Count == 0)
+            {
+                return new 
+                { 
+                    Success = false, 
+                    Message = $"El identificador IMDb '{cleanImdb}' no se encuentra en tu biblioteca de Emby. Ingresa un título existente para simular su reproducción." 
+                };
+            }
+
+            var targetItem = (BaseItem?)episodes.FirstOrDefault() ?? movies.FirstOrDefault();
+            var chapters = _itemRepository.GetChapters(targetItem!)?.ToList() ?? new List<ChapterInfo>();
+
+            long secs = request.Seconds;
+            if (request.IsIntro)
+            {
+                var introStart = chapters.FirstOrDefault(c => c.MarkerType == MarkerType.IntroStart);
+                var introEnd = chapters.FirstOrDefault(c => c.MarkerType == MarkerType.IntroEnd);
+                if (introStart != null && introEnd != null && introEnd.StartPositionTicks > introStart.StartPositionTicks)
+                {
+                    secs = (introEnd.StartPositionTicks - introStart.StartPositionTicks) / 10_000_000L;
+                }
+                else if (secs <= 0)
+                {
+                    secs = 85;
+                }
+            }
+            else
+            {
+                var creditsStart = chapters.FirstOrDefault(c => c.MarkerType == MarkerType.CreditsStart || (c.Name != null && c.Name.StartsWith("Credits", StringComparison.OrdinalIgnoreCase)));
+                if (creditsStart != null)
+                {
+                    long creditsEnd = chapters.FirstOrDefault(c => c.Name == "Credits End")?.StartPositionTicks ?? (targetItem?.RunTimeTicks ?? 0L);
+                    if (creditsEnd > creditsStart.StartPositionTicks)
+                    {
+                        secs = (creditsEnd - creditsStart.StartPositionTicks) / 10_000_000L;
+                    }
+                }
+                if (secs <= 0) secs = 90;
+            }
+
             if (config.UserMetrics == null || config.UserMetrics.Count == 0)
             {
                 config.UserMetrics = new List<UserMetric>
@@ -403,16 +476,18 @@ namespace IntroDbApp.Services
             IntroDbPlaybackEntryPoint.RecordUserSkip(config, targetUser.UserId, targetUser.UserName, request.IsIntro, secs);
 
             IntroDbActivityLogger.Log(
-                "🧪 Prueba de Simulación",
+                $"{targetItem?.Name ?? cleanImdb} ({cleanImdb})",
                 request.IsIntro ? "Salto de Intro Simulado" : "Salto de Créditos Simulado",
                 "success",
-                $"Usuario: {targetUser.UserName} | Ahorro: {secs}s"
+                $"Usuario: {targetUser.UserName} | Ahorro medido: {secs}s"
             );
 
             return new
             {
                 Success = true,
-                Message = $"Simulación exitosa: Se registraron {secs}s ahorrados en {(request.IsIntro ? "Intro" : "Créditos")} para {targetUser.UserName}.",
+                ItemName = targetItem?.Name,
+                ImdbId = cleanImdb,
+                Message = $"Simulación exitosa en '{targetItem?.Name}': Se registraron {secs}s ahorrados en {(request.IsIntro ? "Intro" : "Créditos")} para {targetUser.UserName}.",
                 TotalSaved = config.EstimatedSecondsSaved,
                 UserIntros = targetUser.IntrosSkipped,
                 UserOutros = targetUser.OutrosSkipped,

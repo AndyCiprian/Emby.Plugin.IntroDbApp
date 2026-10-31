@@ -719,9 +719,23 @@ define([], function () {
         var simMsg = page.querySelector('#simStatusMsg');
 
         function runSimulateSkip(isIntro, seconds) {
+            var imdb = cleanString(txtDiagImdb ? txtDiagImdb.value : "");
+            if (!imdb) {
+                if (txtDiagImdb) {
+                    txtDiagImdb.style.borderColor = '#e53935';
+                    txtDiagImdb.focus();
+                }
+                if (simMsg) {
+                    simMsg.style.color = '#e53935';
+                    simMsg.textContent = '⚠️ Campo requerido: Ingresa un identificador IMDb (ejemplo: tt10431290) en el campo superior antes de simular para asociar la reproducción a un título real de tu colección.';
+                }
+                return;
+            }
+            if (txtDiagImdb) txtDiagImdb.style.borderColor = '';
+
             if (simMsg) {
                 simMsg.style.color = '#52B54B';
-                simMsg.textContent = 'Simulando evento de salto (' + (isIntro ? 'Intro' : 'Créditos') + ') en Emby...';
+                simMsg.textContent = 'Simulando evento de salto (' + (isIntro ? 'Intro' : 'Créditos') + ') para ' + imdb + '...';
             }
 
             fetch(ApiClient.getUrl('IntroDbApp/SimulateSkip'), {
@@ -730,17 +744,20 @@ define([], function () {
                     'Content-Type': 'application/json',
                     'X-Emby-Token': ApiClient.accessToken()
                 },
-                body: JSON.stringify({ IsIntro: isIntro, Seconds: seconds })
+                body: JSON.stringify({ IsIntro: isIntro, Seconds: seconds, ImdbId: imdb })
             })
             .then(function (r) { return r.json(); })
             .then(function (res) {
+                var success = Boolean(res && (res.Success === true || res.success === true));
                 var msgText = (res && (res.Message || res.message)) || 'Salto simulado con éxito.';
                 if (simMsg) {
-                    simMsg.style.color = '#52B54B';
-                    simMsg.textContent = '✓ ' + msgText;
+                    simMsg.style.color = success ? '#52B54B' : '#e53935';
+                    simMsg.textContent = (success ? '✓ ' : '⚠️ ') + msgText;
                 }
-                loadStats(page);
-                loadLogs(page);
+                if (success) {
+                    loadStats(page);
+                    loadLogs(page);
+                }
             })
             .catch(function (err) {
                 if (simMsg) {
@@ -797,7 +814,14 @@ define([], function () {
                 }
 
                 inputInspectImdb.style.borderColor = '';
-                if (inspectValidationMsg) inspectValidationMsg.textContent = '';
+                if (inspectValidationMsg) {
+                    if (!isMovie && (!seasonInput.value.trim() || !epInput.value.trim())) {
+                        inspectValidationMsg.style.color = '#00bcd4';
+                        inspectValidationMsg.textContent = 'ℹ️ Consultando por defecto Temporada ' + season + ', Episodio ' + ep + ' (marca de agua). Puedes ingresar otros números si lo deseas.';
+                    } else {
+                        inspectValidationMsg.textContent = '';
+                    }
+                }
                 if (out) out.textContent = "Consultando api.introdb.app...";
 
                 var inspectParams = {

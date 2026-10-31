@@ -11,7 +11,7 @@
     "/home/servidor/.nuget/packages/": {}
   },
   "project": {
-    "version": "4.2.1",
+    "version": "4.2.2",
     "restore": {
       "projectUniqueName": "/home/servidor/introdb_plugin/Emby.Plugin.IntroDbApp.csproj",
       "projectName": "Emby.Plugin.IntroDbApp",

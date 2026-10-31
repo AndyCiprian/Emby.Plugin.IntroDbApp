@@ -15,7 +15,7 @@ namespace IntroDbApp
         public static Plugin? Instance { get; private set; }
 
         public override string Name => "IntroDB (introdb.app)";
-        public override string Description => "Complemento autónomo e híbrido v4.2.1 para la detección y salto universal de intros, créditos y escenas post-créditos mediante IntroDB.app.";
+        public override string Description => "Complemento autónomo e híbrido v4.2.2 para la detección y salto universal de intros, créditos y escenas post-créditos mediante IntroDB.app.";
         public override Guid Id => Guid.Parse("f62e84d1-817a-4c48-8cf9-a6f951e73792");
 
         public Plugin(IApplicationPaths applicationPaths, IXmlSerializer xmlSerializer)
@@ -50,6 +50,11 @@ namespace IntroDbApp
                 new PluginPageInfo
                 {
                     Name = "introdbjs_v421",
+                    EmbeddedResourcePath = GetType().Namespace + ".Web.introdb.js"
+                },
+                new PluginPageInfo
+                {
+                    Name = "introdbjs_v422",
                     EmbeddedResourcePath = GetType().Namespace + ".Web.introdb.js"
                 }
             };
