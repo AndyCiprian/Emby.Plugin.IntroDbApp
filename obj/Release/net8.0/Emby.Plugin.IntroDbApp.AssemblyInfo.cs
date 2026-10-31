@@ -12,11 +12,11 @@ using System.Reflection;
 
 [assembly: System.Reflection.AssemblyCompanyAttribute("Emby.Plugin.IntroDbApp")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
-[assembly: System.Reflection.AssemblyFileVersionAttribute("4.2.2.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("4.2.2.0+6990f6df1ba96938973e12a4703907bffbb89907")]
+[assembly: System.Reflection.AssemblyFileVersionAttribute("4.2.3.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("4.2.3.0+cea4d2c80eed34373f82a5e31f081147aaf1931d")]
 [assembly: System.Reflection.AssemblyProductAttribute("Emby.Plugin.IntroDbApp")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Emby.Plugin.IntroDbApp")]
-[assembly: System.Reflection.AssemblyVersionAttribute("4.2.2.0")]
+[assembly: System.Reflection.AssemblyVersionAttribute("4.2.3.0")]
 
 // Generado por la clase WriteCodeFragment de MSBuild.
 

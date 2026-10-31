@@ -123,7 +123,7 @@ namespace IntroDbApp.Services
 
             return new
             {
-                Version = "4.2.2",
+                Version = Plugin.Instance?.Version.ToString(3) ?? "4.2.3",
                 LastScanStatus = lastScanRaw,
                 LastScanState = scanState,
                 LastScanDate = scanDate,
@@ -582,9 +582,19 @@ namespace IntroDbApp.Services
                 return new { Success = false, Message = "Campo obligatorio: Identificador IMDb requerido." };
             }
 
+            if (request.StartSec < 0)
+            {
+                return new { Success = false, Message = "El tiempo de inicio no puede ser un valor negativo." };
+            }
+
             if (request.EndSec <= request.StartSec)
             {
                 return new { Success = false, Message = "El tiempo de finalización debe ser estrictamente mayor al de inicio." };
+            }
+
+            if (!request.IsMovie && ((request.Season ?? 0) <= 0 || (request.Episode ?? 0) <= 0))
+            {
+                return new { Success = false, Message = "Para series de TV, la temporada y el episodio deben ser números mayores a cero." };
             }
 
             var payload = new SubmitSegmentPayload

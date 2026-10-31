@@ -937,6 +937,13 @@ define([], function () {
                         subMsg.textContent = (success ? '✓ ' : 'Error: ') + msgText;
                     }
                     if (success) {
+                        subImdbInput.value = '';
+                        var startInput = page.querySelector('#subStartSec');
+                        if (startInput) startInput.value = '';
+                        var endInput = page.querySelector('#subEndSec');
+                        if (endInput) endInput.value = '';
+                        if (subSeasonInput) subSeasonInput.value = '';
+                        if (subEpInput) subEpInput.value = '';
                         loadConfiguration(page);
                     }
                 })
