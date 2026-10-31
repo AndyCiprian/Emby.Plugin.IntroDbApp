@@ -1,0 +1,60 @@
+name: Build and Package Plugin
+
+on:
+  push:
+    branches: [ "master", "main" ]
+    tags: [ "v*" ]
+  pull_request:
+    branches: [ "master", "main" ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build & Package Emby Plugin
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore Dependencies
+        run: dotnet restore Emby.Plugin.IntroDbApp.csproj
+
+      - name: Build in Release Configuration
+        run: dotnet build Emby.Plugin.IntroDbApp.csproj -c Release --no-restore -o ./output
+
+      - name: Package Plugin Archive (.zip)
+        run: |
+          mkdir -p ./dist
+          cd ./output
+          zip -9 -r ../dist/Emby.Plugin.IntroDbApp.zip Emby.Plugin.IntroDbApp.dll
+          cd ..
+          echo "ZIP package created in dist/Emby.Plugin.IntroDbApp.zip"
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Emby.Plugin.IntroDbApp-v${{ github.ref_name }}
+          path: |
+            ./output/Emby.Plugin.IntroDbApp.dll
+            ./dist/Emby.Plugin.IntroDbApp.zip
+          retention-days: 30
+
+      - name: Publish GitHub Release (on tag)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ./dist/Emby.Plugin.IntroDbApp.zip
+            ./output/Emby.Plugin.IntroDbApp.dll
+          draft: false
+          prerelease: false
+          generate_release_notes: true
