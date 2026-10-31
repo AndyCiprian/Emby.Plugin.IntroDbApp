@@ -25,7 +25,7 @@ El código ya está completamente preparado localmente, empaquetado y etiquetado
 cd /home/servidor/introdb_plugin
 
 # 2. Si creas el repositorio en GitHub (ejemplo: Emby.Plugin.IntroDbApp), agrega el origen remoto:
-git remote add origin https://github.com/Andy-Ciprian/Emby.Plugin.IntroDbApp.git
+git remote add origin https://github.com/AndyCiprian/Emby.Plugin.IntroDbApp.git
 
 # 3. Empujar la rama master y las etiquetas de versión al repositorio remoto
 git push -u origin master --tags
@@ -85,7 +85,7 @@ Many users enjoy automated skip features, but not all setups have Emby Premiere 
 4. Access **IntroDB.app** under the *Advanced* plugins menu.
 
 ### 🔗 Source Code & Releases:
-- **GitHub Repository:** https://github.com/Andy-Ciprian/Emby.Plugin.IntroDbApp
+- **GitHub Repository:** https://github.com/AndyCiprian/Emby.Plugin.IntroDbApp
 - **API Documentation:** https://introdb.app/docs/api
 
 Feedback, testing on various client devices, and feature suggestions are warmly welcomed!
@@ -115,7 +115,7 @@ El equipo de Emby registrará tu plugin en su índice maestro (`EmbyPackages.jso
 | **targetSystem** | `Server` |
 | **targetVersion** | `>= 4.8.0.0` |
 | **owner** | `Andy Ernesto Ciprian` |
-| **sourceUrl** | `https://github.com/Andy-Ciprian/Emby.Plugin.IntroDbApp/releases/download/v4.2.3/Emby.Plugin.IntroDbApp.zip` |
+| **sourceUrl** | `https://github.com/AndyCiprian/Emby.Plugin.IntroDbApp/releases/download/v4.2.3/Emby.Plugin.IntroDbApp.zip` |
 
 ---
 
@@ -140,7 +140,7 @@ Si deseas que usuarios o amigos puedan instalar y actualizar el plugin directame
         "version": "4.2.3.0",
         "changelog": "Versión 4.2.3: Limpieza automática de aportes comunitarios, validación de simulación estricta y tema adaptativo.",
         "targetFilename": "Emby.Plugin.IntroDbApp.dll",
-        "sourceUrl": "https://github.com/Andy-Ciprian/Emby.Plugin.IntroDbApp/releases/download/v4.2.3/Emby.Plugin.IntroDbApp.zip",
+        "sourceUrl": "https://github.com/AndyCiprian/Emby.Plugin.IntroDbApp/releases/download/v4.2.3/Emby.Plugin.IntroDbApp.zip",
         "timestamp": "2026-10-31T18:31:00Z"
       }
     ]

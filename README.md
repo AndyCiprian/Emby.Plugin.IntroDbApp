@@ -101,7 +101,7 @@ flowchart TD
 
 ```bash
 # Clone the repository
-git clone https://github.com/Andy-Ciprian/Emby.Plugin.IntroDbApp.git
+git clone https://github.com/AndyCiprian/Emby.Plugin.IntroDbApp.git
 cd Emby.Plugin.IntroDbApp
 
 # Build in Release configuration
@@ -125,7 +125,7 @@ dotnet build Emby.Plugin.IntroDbApp.csproj -c Release -o ./bin
 ## 👤 Author
 
 Developed with ❤️ by **Andy Ernesto Ciprian Ciprian**
-- GitHub: [@Andy-Ciprian](https://github.com/Andy-Ciprian)
+- GitHub: [@AndyCiprian](https://github.com/AndyCiprian)
 
 ## 📄 License
 
