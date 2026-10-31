@@ -1,0 +1,548 @@
+<div id="IntroDbConfigurationPage" data-role="page" class="page type-interior pluginConfigurationPage" data-controller="__plugin/introdbjs_v42">
+    <div data-role="content">
+        <div class="content-primary">
+            <div class="verticalSection" style="margin-bottom: 1.5em;">
+                <div class="sectionTitleContainer flex align-items-center">
+                    <h2 class="sectionTitle" style="margin: 0; font-size: 1.7em; font-weight: bold; letter-spacing: -0.5px;">
+                        IntroDB.app <span id="pluginVersionBadge" style="font-size: 0.55em; background: rgba(82, 181, 75, 0.18); color: #52B54B; border: 1px solid #52B54B; padding: 3px 10px; border-radius: 6px; vertical-align: middle; font-weight: bold;">v4.2.0 Universal</span>
+                    </h2>
+                </div>
+                <p class="fieldDescription" style="margin-top: 0.6em; font-size: 0.95em; line-height: 1.5;">
+                    Complemento de sincronización y generación de marcadores multimedia para Emby Server. Integra la base de datos comunitaria de IntroDB.app para automatizar la inserción de capítulos nativos (intros, resúmenes, créditos finales y escenas post-créditos), permitiendo el salto de secuencias tanto en clientes nativos de Emby como en reproductores externos (Infuse, Nuvio y Kodi).
+                </p>
+            </div>
+
+            <!-- Navegación por pestañas -->
+            <div style="display: flex; gap: 8px; border-bottom: 1px solid rgba(255, 255, 255, 0.15); margin-bottom: 1.5em; padding-bottom: 0.5em; flex-wrap: wrap;">
+                <button type="button" id="tabBtnConfig" class="raised emby-button" style="background: rgba(82, 181, 75, 0.2); color: #52B54B; border: 1px solid #52B54B; border-radius: 6px; font-weight: 600;">⚙️ Configuración</button>
+                <button type="button" id="tabBtnStats" class="raised emby-button" style="background: transparent; border-radius: 6px;">📊 Métricas & Perfiles</button>
+                <button type="button" id="tabBtnTools" class="raised emby-button" style="background: transparent; border-radius: 6px;">🛠️ Herramientas & Inspector</button>
+                <button type="button" id="tabBtnLogs" class="raised emby-button" style="background: transparent; border-radius: 6px;">📜 Registro de Eventos</button>
+            </div>
+
+            <!-- PESTAÑA 1: CONFIGURACIÓN -->
+            <div id="tabContentConfig">
+                <form id="IntroDbConfigForm">
+                    <div class="verticalSection">
+                        <h3 class="sectionTitle">Estrategia de Operación</h3>
+                        <div class="selectContainer">
+                            <label class="selectLabel" for="selectOperationMode">Modo del Motor:</label>
+                            <select is="emby-select" id="selectOperationMode" class="emby-select-withcolor emby-select">
+                                <option value="IntroDbPrimary">⭐ IntroDB Primero (Prioridad IntroDB.app, TheIntroDB como respaldo)</option>
+                                <option value="Hybrid">🔄 TheIntroDB Primero (Prioridad TheIntroDB, IntroDB rescata faltantes)</option>
+                                <option value="Standalone">🛡️ Modo Autónomo (Gestión independiente exclusiva con IntroDB)</option>
+                                <option value="Overwrite">⚡ Modo Forzar Reescritura (Sobrescribir marcas existentes con IntroDB)</option>
+                            </select>
+                            <div class="fieldDescription" id="modeDescription" style="margin-top: 0.5em; color: #52B54B; font-weight: 500;">
+                                Prioriza la sincronización con IntroDB.app. Los elementos sin registros en el proveedor principal conservan los marcadores provistos por TheIntroDB u orígenes locales.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="verticalSection" style="margin-top: 1.5em;">
+                        <h3 class="sectionTitle">Estado Maestro y Automatización en Tiempo Real</h3>
+
+                        <div class="checkboxContainer checkboxContainer-withDescription">
+                            <label>
+                                <input is="emby-checkbox" type="checkbox" id="chkEnabled" />
+                                <span>Habilitar motor de sincronización de IntroDB</span>
+                            </label>
+                            <div class="fieldDescription checkboxFieldDescription">
+                                Interruptor maestro del complemento. Si se desactiva, se suspenden de inmediato todas las consultas a la API de IntroDB, las tareas programadas y la detección en tiempo real, manteniendo guardadas las credenciales y métricas.
+                            </div>
+                        </div>
+
+                        <div class="checkboxContainer checkboxContainer-withDescription">
+                            <label>
+                                <input is="emby-checkbox" type="checkbox" id="chkRealtimeScan" />
+                                <span>Detección Automática por Ingesta de Medios (Biblioteca en Tiempo Real)</span>
+                            </label>
+                            <div class="fieldDescription checkboxFieldDescription">
+                                Cuando se incorpora un nuevo episodio o película a la biblioteca, IntroDB procesa los identificadores e inyecta los capítulos de forma inmediata.
+                            </div>
+                        </div>
+
+                        <div class="checkboxContainer checkboxContainer-withDescription">
+                            <label>
+                                <input is="emby-checkbox" type="checkbox" id="chkOnDemand" />
+                                <span>Detección On-Demand al Iniciar Reproducción</span>
+                            </label>
+                            <div class="fieldDescription checkboxFieldDescription">
+                                Si un elemento se reproduce antes de ser indexado por el escaneo general, consulta IntroDB al vuelo para garantizar el salto inmediato.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="verticalSection" style="margin-top: 1.5em;">
+                        <h3 class="sectionTitle">Tipos de Segmentos Multimedia</h3>
+
+                        <div class="checkboxContainer checkboxContainer-withDescription">
+                            <label>
+                                <input is="emby-checkbox" type="checkbox" id="chkFetchIntros" />
+                                <span>Identificar y Marcar Secuencias de Intro (Openings)</span>
+                            </label>
+                            <div class="fieldDescription checkboxFieldDescription">
+                                Registra el intervalo de apertura permitiendo el salto de intro en Emby, Infuse, Nuvio y navegadores.
+                            </div>
+                        </div>
+
+                        <div class="checkboxContainer checkboxContainer-withDescription">
+                            <label>
+                                <input is="emby-checkbox" type="checkbox" id="chkFetchCredits" />
+                                <span>Identificar y Marcar Créditos / Outros (Endings)</span>
+                            </label>
+                            <div class="fieldDescription checkboxFieldDescription">
+                                Localiza el inicio de los créditos para omitir canciones de cierre y activar la sugerencia de siguiente episodio.
+                            </div>
+                        </div>
+
+                        <div class="checkboxContainer checkboxContainer-withDescription">
+                            <label>
+                                <input is="emby-checkbox" type="checkbox" id="chkScanMovies" />
+                                <span>Procesar Catálogo de Películas</span>
+                            </label>
+                            <div class="fieldDescription checkboxFieldDescription">
+                                Rastrea marcas de inicio de créditos finales y post-créditos en largometrajes.
+                            </div>
+                        </div>
+
+                        <div class="checkboxContainer checkboxContainer-withDescription">
+                            <label>
+                                <input is="emby-checkbox" type="checkbox" id="chkFetchPostCredits" />
+                                <span>Localizar Escenas Post-Créditos</span>
+                            </label>
+                            <div class="fieldDescription checkboxFieldDescription">
+                                Agrega un marcador de capítulo hacia la escena tras los créditos cuando esté registrada en la base de datos.
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SECCIÓN API KEY & STATS DEL COLABORADOR -->
+                    <div class="verticalSection" style="margin-top: 1.8em; padding: 1.2em; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 8px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                            <h3 class="sectionTitle" style="margin: 0;">Integración con IntroDB.app</h3>
+                            <span id="apiKeyBadge" style="display: none; padding: 4px 10px; border-radius: 6px; font-size: 0.85em; font-weight: bold;"></span>
+                        </div>
+                        
+                        <p class="fieldDescription" style="margin-top: 0.5em;">
+                            Las consultas de lectura y descarga de marcas son públicas y no requieren clave. La clave de API es personal y opcional; se utiliza para enviar aportes validados a la comunidad.
+                        </p>
+
+                        <div style="display: flex; gap: 10px; align-items: flex-end; margin-top: 1em; flex-wrap: wrap;">
+                            <div style="flex: 1; min-width: 250px;">
+                                <label class="inputLabel" for="txtApiKey">Clave de API de IntroDB.app:</label>
+                                <input is="emby-input" type="text" id="txtApiKey" class="emby-input" placeholder="idb_xxxxxxxxxxxx..." />
+                            </div>
+                            <div>
+                                <button type="button" id="btnVerifyApiKey" class="raised emby-button" style="background: rgba(82, 181, 75, 0.2); color: #52B54B; border: 1px solid #52B54B; border-radius: 6px; padding: 0.6em 1.2em; font-weight: 600;">
+                                    <span>🔑 Verificar Clave</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div id="apiVerifyStatusMsg" style="margin-top: 0.6em; font-size: 0.9em; font-weight: 500;"></div>
+
+                        <!-- TABLA DE ESTADÍSTICAS DEL COLABORADOR -->
+                        <div id="apiKeyStatsContainer" style="margin-top: 1.2em;">
+                            <h4 style="font-size: 0.9em; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.9; margin-bottom: 0.6em; color: #ffffff;">Estadísticas de la Clave de API</h4>
+                            <div style="background: rgba(255, 255, 255, 0.03); border-radius: 6px; overflow-x: auto; border: 1px solid rgba(255, 255, 255, 0.12);">
+                                <table style="width: 100%; border-collapse: collapse; font-size: 0.9em; text-align: left;">
+                                    <tbody>
+                                        <tr style="border-bottom: 1px solid rgba(255,255,255,0.08);">
+                                            <td style="padding: 10px 14px; opacity: 0.85;">Estado de Conexión</td>
+                                            <td id="statApiStatus" style="padding: 10px 14px; font-weight: bold; text-align: right;">No configurada</td>
+                                        </tr>
+                                        <tr style="border-bottom: 1px solid rgba(255,255,255,0.08);">
+                                            <td style="padding: 10px 14px; opacity: 0.85;">Total de Aportes Remitidos</td>
+                                            <td id="statApiTotal" style="padding: 10px 14px; font-weight: bold; text-align: right;">0</td>
+                                        </tr>
+                                        <tr style="border-bottom: 1px solid rgba(255,255,255,0.08);">
+                                            <td style="padding: 10px 14px; opacity: 0.85;">En Vivo / Aceptados (Live)</td>
+                                            <td id="statApiLive" style="padding: 10px 14px; color: #52B54B; font-weight: bold; text-align: right;">0</td>
+                                        </tr>
+                                        <tr style="border-bottom: 1px solid rgba(255,255,255,0.08);">
+                                            <td style="padding: 10px 14px; opacity: 0.85;">En Revisión (In Review)</td>
+                                            <td id="statApiPending" style="padding: 10px 14px; text-align: right;">0</td>
+                                        </tr>
+                                        <tr style="border-bottom: 1px solid rgba(255,255,255,0.08);">
+                                            <td style="padding: 10px 14px; opacity: 0.85;">Rechazados</td>
+                                            <td id="statApiRejected" style="padding: 10px 14px; text-align: right;">0</td>
+                                        </tr>
+                                        <tr style="border-bottom: 1px solid rgba(255,255,255,0.08);">
+                                            <td style="padding: 10px 14px; opacity: 0.85;">Tasa de Aceptación</td>
+                                            <td id="statApiAcceptance" style="padding: 10px 14px; font-weight: bold; text-align: right;">100%</td>
+                                        </tr>
+                                        <tr style="border-bottom: 1px solid rgba(255,255,255,0.08);">
+                                            <td style="padding: 10px 14px; opacity: 0.85;">Límite de Solicitudes (Rate Limit)</td>
+                                            <td id="statApiRateLimit" style="padding: 10px 14px; text-align: right;">100 / 100 disponibles</td>
+                                        </tr>
+                                        <tr>
+                                            <td style="padding: 10px 14px; opacity: 0.85;">Última Comprobación</td>
+                                            <td id="statApiLastChecked" style="padding: 10px 14px; font-size: 0.88em; opacity: 0.85; text-align: right;">Nunca</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 2em;">
+                        <button is="emby-button" type="submit" class="raised button-submit block" style="padding: 0.8em; font-weight: bold;">
+                            <span>Guardar Configuración</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- PESTAÑA 2: MÉTRICAS & PERFILES -->
+            <div id="tabContentStats" style="display: none;">
+                <div class="verticalSection">
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                        <h3 class="sectionTitle" style="margin: 0;">Métricas de Rendimiento y Ahorro</h3>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <label for="selectUserFilter" style="font-size: 0.9em; opacity: 0.85;">Perfil:</label>
+                            <select is="emby-select" id="selectUserFilter" class="emby-select" style="padding: 4px 8px; font-size: 0.9em; min-width: 180px;">
+                                <option value="all">🌐 Todos los Perfiles (Global)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1em; margin-top: 1.2em;">
+                        <!-- TARJETA 1: TIEMPO TOTAL AHORRADO -->
+                        <div style="background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.15); padding: 1.2em; border-radius: 8px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-size: 0.85em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #ffffff;">⏱️ Tiempo Total Ahorrado</span>
+                                <button type="button" id="btnHelpTimeSaved" style="display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; min-width: 22px; min-height: 22px; border-radius: 50%; background: rgba(82, 181, 75, 0.18); border: 1px solid #52B54B; color: #52B54B; font-weight: bold; font-size: 13px; line-height: 1; cursor: pointer; padding: 0; outline: none; margin: 0;" title="Ver explicación">?</button>
+                            </div>
+                            <div id="bannerHelpTimeSaved" style="display: none; margin-top: 0.8em; padding: 0.8em; background: rgba(0, 188, 212, 0.08); border-left: 3px solid #00bcd4; border-radius: 4px; font-size: 0.84em; line-height: 1.45; color: #ffffff;">
+                                Suma acumulada del tiempo ahorrado por todos los perfiles de usuario al omitir automáticamente intros (openings) y créditos finales (endings) durante la reproducción en clientes de Emby e integraciones externas.
+                            </div>
+                            <div id="statTimeSaved" style="font-size: 2em; font-weight: bold; margin-top: 0.2em; color: #00bcd4;">0h 0m</div>
+                            <div id="statTimeDetail" style="font-size: 0.8em; opacity: 0.75; margin-top: 0.4em;">Openings y Endings omitidos</div>
+                        </div>
+
+                        <!-- TARJETA 2: COBERTURA INTROS -->
+                        <div style="background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.15); padding: 1.2em; border-radius: 8px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-size: 0.85em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #ffffff;">🟢 Cobertura de Intros</span>
+                                <button type="button" id="btnHelpIntros" style="display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; min-width: 22px; min-height: 22px; border-radius: 50%; background: rgba(82, 181, 75, 0.18); border: 1px solid #52B54B; color: #52B54B; font-weight: bold; font-size: 13px; line-height: 1; cursor: pointer; padding: 0; outline: none; margin: 0;" title="Ver explicación">?</button>
+                            </div>
+                            <div id="bannerHelpIntros" style="display: none; margin-top: 0.8em; padding: 0.8em; background: rgba(82, 181, 75, 0.08); border-left: 3px solid #52B54B; border-radius: 4px; font-size: 0.84em; line-height: 1.45; color: #ffffff;">
+                                Porcentaje de episodios de tu biblioteca que disponen de marcas temporales de intro verificadas, listas para salto automático en cualquier reproductor (Web, Android TV, Infuse, Kodi, etc.).
+                            </div>
+                            <div id="statIntrosCovered" style="font-size: 2em; font-weight: bold; margin-top: 0.2em; color: #52B54B;">0%</div>
+                            <div id="statIntrosCount" style="font-size: 0.85em; opacity: 0.8; margin-top: 0.4em;">0 / 0 episodios</div>
+                        </div>
+
+                        <!-- TARJETA 3: COBERTURA CRÉDITOS -->
+                        <div style="background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.15); padding: 1.2em; border-radius: 8px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-size: 0.85em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #ffffff;">🟣 Cobertura de Créditos</span>
+                                <button type="button" id="btnHelpCredits" style="display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; min-width: 22px; min-height: 22px; border-radius: 50%; background: rgba(82, 181, 75, 0.18); border: 1px solid #52B54B; color: #52B54B; font-weight: bold; font-size: 13px; line-height: 1; cursor: pointer; padding: 0; outline: none; margin: 0;" title="Ver explicación">?</button>
+                            </div>
+                            <div id="bannerHelpCredits" style="display: none; margin-top: 0.8em; padding: 0.8em; background: rgba(171, 71, 188, 0.08); border-left: 3px solid #ab47bc; border-radius: 4px; font-size: 0.84em; line-height: 1.45; color: #ffffff;">
+                                Porcentaje de episodios y películas que cuentan con marcadores de inicio de créditos finales para saltar al siguiente episodio o evitar esperas al concluir la emisión.
+                            </div>
+                            <div id="statCreditsCovered" style="font-size: 2em; font-weight: bold; margin-top: 0.2em; color: #ab47bc;">0%</div>
+                            <div id="statCreditsCount" style="font-size: 0.85em; opacity: 0.8; margin-top: 0.4em;">0 / 0 episodios</div>
+                        </div>
+
+                        <!-- TARJETA 4: APORTES INTRODB -->
+                        <div style="background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.15); padding: 1.2em; border-radius: 8px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-size: 0.85em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #ffffff;">🚀 Aportes IntroDB</span>
+                                <button type="button" id="btnHelpIntroDb" style="display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; min-width: 22px; min-height: 22px; border-radius: 50%; background: rgba(82, 181, 75, 0.18); border: 1px solid #52B54B; color: #52B54B; font-weight: bold; font-size: 13px; line-height: 1; cursor: pointer; padding: 0; outline: none; margin: 0;" title="Ver explicación">?</button>
+                            </div>
+                            <div id="bannerHelpIntroDb" style="display: none; margin-top: 0.8em; padding: 0.8em; background: rgba(255, 152, 0, 0.08); border-left: 3px solid #ff9800; border-radius: 4px; font-size: 0.84em; line-height: 1.45; color: #ffffff;">
+                                Cantidad total de marcadores que IntroDB.app ha inyectado con éxito en tu servidor para rescatar intros o créditos que no estaban en TheIntroDB o en archivos locales.
+                            </div>
+                            <div id="statIntroDbRescued" style="font-size: 2em; font-weight: bold; margin-top: 0.2em; color: #ff9800;">+0</div>
+                            <div id="statIntroDbDetail" style="font-size: 0.85em; opacity: 0.8; margin-top: 0.4em;">Marcadores inyectados</div>
+                        </div>
+                    </div>
+
+                    <!-- Desglose por Usuario -->
+                    <div style="margin-top: 2em;">
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.8em;">
+                            <h4 style="font-size: 1.1em; margin: 0; color: #ffffff;">👤 Estadísticas por Perfil de Usuario</h4>
+                            <button type="button" id="btnHelpUserStats" style="display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; min-width: 22px; min-height: 22px; border-radius: 50%; background: rgba(82, 181, 75, 0.18); border: 1px solid #52B54B; color: #52B54B; font-weight: bold; font-size: 13px; line-height: 1; cursor: pointer; padding: 0; outline: none; margin: 0;" title="Información sobre las métricas por perfil">?</button>
+                        </div>
+
+                        <!-- BANNER EXPLICATIVO PERFILES -->
+                        <div id="bannerHelpUserStats" style="display: none; margin-bottom: 1em; padding: 1em; background: rgba(82, 181, 75, 0.08); border-left: 3px solid #52B54B; border-radius: 4px; font-size: 0.9em; line-height: 1.45; color: #ffffff;">
+                            Métricas individualizadas de reproducción por cada cuenta de usuario configurada en Emby: contabiliza las intros omitidas, créditos saltados y el tiempo neto ahorrado por cada persona.
+                        </div>
+
+                        <div style="background: rgba(255, 255, 255, 0.03); border-radius: 8px; overflow-x: auto; border: 1px solid rgba(255, 255, 255, 0.15);">
+                            <table style="width: 100%; border-collapse: collapse; font-size: 0.9em; text-align: left;">
+                                <thead>
+                                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.18); background: rgba(255, 255, 255, 0.09); font-weight: 600;">
+                                        <th style="padding: 12px 16px; color: #ffffff;">Perfil / Usuario</th>
+                                        <th style="padding: 12px 16px; color: #ffffff;">Intros Omitidos</th>
+                                        <th style="padding: 12px 16px; color: #ffffff;">Créditos Omitidos</th>
+                                        <th style="padding: 12px 16px; color: #ffffff;">Tiempo Ahorrado</th>
+                                        <th style="padding: 12px 16px; color: #ffffff;">Última Actividad</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="userMetricsTableBody">
+                                    <tr>
+                                        <td colspan="5" style="padding: 15px; text-align: center; opacity: 0.6; color: #ffffff;">Cargando métricas de perfiles...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- SECCIÓN ÚLTIMO ESCANEO CON INFORMACIÓN Y TOOLTIP -->
+                    <div style="margin-top: 1.8em; padding: 1.2em; background: rgba(255, 255, 255, 0.04); border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.15);">
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.8em;">
+                            <h4 style="margin: 0; font-size: 1.05em; font-weight: 600; color: #ffffff;">Último Escaneo de Biblioteca</h4>
+                            <button type="button" id="btnScanHelpToggle" style="display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; min-width: 22px; min-height: 22px; border-radius: 50%; background: rgba(82, 181, 75, 0.18); border: 1px solid #52B54B; color: #52B54B; font-weight: bold; font-size: 13px; line-height: 1; cursor: pointer; padding: 0; outline: none; margin: 0;" title="Información sobre el escaneo y la memoria caché">?</button>
+                        </div>
+
+                        <!-- BANNER INFORMATIVO DESPLEGABLE -->
+                        <div id="scanHelpBanner" style="display: none; margin-bottom: 1em; padding: 1em; background: rgba(82, 181, 75, 0.08); border-left: 3px solid #52B54B; border-radius: 4px; font-size: 0.9em; line-height: 1.45; color: #ffffff;">
+                            <p style="margin: 0 0 0.5em 0;"><strong>ℹ️ Información sobre la Indexación y Caché:</strong></p>
+                            <ul style="margin: 0; padding-left: 1.2em; opacity: 0.9;">
+                                <li><strong>Escaneo Periódico:</strong> Proceso automatizado en segundo plano que consulta IntroDB para asociar marcas de tiempo a cada elemento de la colección.</li>
+                                <li><strong>Caché 404 (Sin registros):</strong> Los títulos sin marcas en IntroDB se indexan temporalmente en caché local para evitar saturar la API con consultas reiterativas infructuosas.</li>
+                                <li><strong>Actualización:</strong> Si has subido nuevos timestamps a la plataforma o agregado contenido reciente, presiona <em>"Limpiar Caché de No Encontrados (404)"</em> en la pestaña de Herramientas para permitir una nueva consulta inmediata.</li>
+                            </ul>
+                        </div>
+
+                        <div style="background: rgba(255, 255, 255, 0.03); border-radius: 6px; overflow-x: auto; border: 1px solid rgba(255, 255, 255, 0.12);">
+                            <table style="width: 100%; border-collapse: collapse; font-size: 0.9em; text-align: left;">
+                                <tbody>
+                                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.08);">
+                                        <td style="padding: 10px 14px; opacity: 0.85;">Estado</td>
+                                        <td id="statScanState" style="padding: 10px 14px; font-weight: bold; text-align: right; color: #52B54B;">No ejecutado</td>
+                                    </tr>
+                                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.08);">
+                                        <td style="padding: 10px 14px; opacity: 0.85;">Fecha y hora</td>
+                                        <td id="statScanDate" style="padding: 10px 14px; text-align: right; color: #ffffff;">Nunca</td>
+                                    </tr>
+                                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.08);">
+                                        <td style="padding: 10px 14px; opacity: 0.85;">Duración</td>
+                                        <td id="statScanDuration" style="padding: 10px 14px; text-align: right; color: #ffffff;">0 s</td>
+                                    </tr>
+                                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.08);">
+                                        <td style="padding: 10px 14px; opacity: 0.85;">Episodios analizados en la última pasada</td>
+                                        <td id="statLastScannedItems" style="padding: 10px 14px; font-weight: bold; text-align: right; color: #ffffff;">0</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding: 10px 14px; opacity: 0.85;">Elementos no registrados en IntroDB (Caché 404)</td>
+                                        <td id="statCached404" style="padding: 10px 14px; text-align: right; color: #ffffff;">0</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PESTAÑA 3: HERRAMIENTAS & INSPECTOR -->
+            <div id="tabContentTools" style="display: none;">
+                <div class="verticalSection">
+                    <h3 class="sectionTitle">Operaciones de Mantenimiento de Biblioteca</h3>
+                    
+                    <div style="display: flex; gap: 1em; flex-wrap: wrap; align-items: center;">
+                        <button type="button" id="btnRunScanNow" class="raised button-submit emby-button" style="border-radius: 6px; padding: 0.6em 1.2em;">
+                            <span>▶️ Ejecutar Escaneo General de Biblioteca</span>
+                        </button>
+                        <button type="button" id="btnClear404Cache" class="raised emby-button" style="background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.25); color: #ffffff; border-radius: 6px; padding: 0.6em 1.2em; font-weight: 600; cursor: pointer;">
+                            <span>🗑️ Limpiar Caché de No Encontrados (404)</span>
+                        </button>
+                    </div>
+                    <div id="actionStatusMsg" style="margin-top: 0.8em; font-size: 0.9em; font-weight: 500;"></div>
+
+                    <!-- ESCANEO RÁPIDO DE TÍTULO ESPECÍFICO -->
+                    <div style="margin-top: 1.5em; padding: 1.2em; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 8px;">
+                        <h4 style="margin: 0; font-size: 1.05em; font-weight: 600; color: #52B54B;">🎯 Escaneo Específico de Título (Búsqueda Directa)</h4>
+                        <p class="fieldDescription" style="margin-top: 0.4em;">
+                            Escanear un título concreto de tu biblioteca por identificador IMDb sin esperar al escaneo general:
+                        </p>
+                        <div style="display: flex; gap: 10px; align-items: flex-end; margin-top: 0.8em; flex-wrap: wrap;">
+                            <div style="flex: 1; min-width: 220px;">
+                                <label class="inputLabel" for="txtQuickScanImdb">Identificador IMDb:</label>
+                                <input is="emby-input" type="text" id="txtQuickScanImdb" class="emby-input" placeholder="tt0903747" />
+                            </div>
+                            <div>
+                                <button type="button" id="btnQuickScan" class="raised emby-button" style="background: rgba(82, 181, 75, 0.2); color: #52B54B; border: 1px solid #52B54B; border-radius: 6px; padding: 0.6em 1.2em; font-weight: 600;">
+                                    <span>🎯 Escanear Este Título</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div id="quickScanMsg" style="margin-top: 0.6em; font-size: 0.9em; font-weight: 500;"></div>
+                    </div>
+                </div>
+
+                <!-- CENTRO DE DIAGNÓSTICO EN VIVO Y PRUEBA DE SIMULACIÓN -->
+                <div class="verticalSection" style="margin-top: 2em; padding: 1.2em; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(82, 181, 75, 0.35); border-radius: 8px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                        <h3 class="sectionTitle" style="margin: 0; color: #52B54B;">🩺 Centro de Diagnóstico & Prueba de Salto en Vivo</h3>
+                        <span style="font-size: 0.8em; background: rgba(82, 181, 75, 0.15); color: #52B54B; border: 1px solid #52B54B; padding: 2px 8px; border-radius: 4px; font-weight: 600;">Comprobación 100% Real</span>
+                    </div>
+                    <p class="fieldDescription" style="margin-top: 0.4em;">
+                        Verifica en tiempo real si un episodio o película de tu servidor tiene inyectados los capítulos nativos de salto en Emby, o simula un evento de reproducción para comprobar la respuesta inmediata del motor de métricas.
+                    </p>
+
+                    <!-- Diagnóstico de Marcadores en Emby -->
+                    <div style="display: flex; gap: 10px; align-items: flex-end; margin-top: 1em; flex-wrap: wrap;">
+                        <div style="flex: 1; min-width: 220px;">
+                            <label class="inputLabel" for="txtDiagImdb">IMDb del Título a Diagnosticar:</label>
+                            <input is="emby-input" type="text" id="txtDiagImdb" class="emby-input" placeholder="tt10431290" />
+                        </div>
+                        <div>
+                            <button type="button" id="btnDiagnoseItem" class="raised emby-button" style="background: rgba(82, 181, 75, 0.2); color: #52B54B; border: 1px solid #52B54B; border-radius: 6px; padding: 0.6em 1.2em; font-weight: 600;">
+                                <span>🔍 Diagnosticar en Emby</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div id="diagStatusMsg" style="margin-top: 0.6em; font-size: 0.9em; font-weight: 500;"></div>
+
+                    <div style="margin-top: 0.8em;">
+                        <pre id="diagResultPre" style="display: none; background: rgba(0, 0, 0, 0.35); padding: 1em; border-radius: 6px; font-family: monospace; font-size: 0.88em; color: #ffffff; border: 1px solid rgba(255, 255, 255, 0.15); max-height: 220px; overflow-y: auto;"></pre>
+                    </div>
+
+                    <!-- Simulación de Salto para Pruebas -->
+                    <div style="margin-top: 1.4em; padding-top: 1em; border-top: 1px solid rgba(255, 255, 255, 0.1);">
+                        <h4 style="margin: 0; font-size: 0.95em; color: #ffffff;">🧪 Pruebas de Simulación de Reproducción:</h4>
+                        <p class="fieldDescription" style="margin-top: 0.3em;">
+                            Pulsa uno de los botones para generar un salto de prueba. Comprobarás que las métricas de usuario y el tiempo ahorrado se incrementan al instante:
+                        </p>
+                        <div style="display: flex; gap: 10px; margin-top: 0.8em; flex-wrap: wrap;">
+                            <button type="button" id="btnSimulateIntro" class="raised emby-button" style="background: rgba(82, 181, 75, 0.2); color: #52B54B; border: 1px solid #52B54B; border-radius: 6px; font-size: 0.88em;">
+                                <span>🟢 Simular Salto de Intro (+85s)</span>
+                            </button>
+                            <button type="button" id="btnSimulateOutro" class="raised emby-button" style="background: rgba(171, 71, 188, 0.2); color: #ab47bc; border: 1px solid #ab47bc; border-radius: 6px; font-size: 0.88em;">
+                                <span>🟣 Simular Salto de Créditos (+90s)</span>
+                            </button>
+                        </div>
+                        <div id="simStatusMsg" style="margin-top: 0.6em; font-size: 0.9em; font-weight: 500;"></div>
+                    </div>
+                </div>
+
+                <!-- INSPECTOR DE METADATOS (SOPORTA SERIES Y PELÍCULAS) -->
+                <div class="verticalSection" style="margin-top: 2em; padding: 1.2em; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 8px;">
+                    <h3 class="sectionTitle">Inspector de Metadatos en Vivo</h3>
+                    <p class="fieldDescription">Consulta directamente la respuesta de IntroDB.app para cualquier título de tu interés.</p>
+                    
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-top: 1em; align-items: flex-end;">
+                        <div>
+                            <label class="inputLabel">Tipo de Medio:</label>
+                            <select is="emby-select" id="inspectMediaType" class="emby-select">
+                                <option value="series">Serie de TV</option>
+                                <option value="movie">Película</option>
+                            </select>
+                        </div>
+                        <div style="min-width: 170px;">
+                            <label class="inputLabel">Identificador IMDb (Obligatorio):</label>
+                            <input is="emby-input" type="text" id="inspectImdbId" class="emby-input" placeholder="tt11147852" />
+                        </div>
+                        <div id="inspectFieldSeason">
+                            <label class="inputLabel">Temporada:</label>
+                            <input is="emby-input" type="number" id="inspectSeason" class="emby-input" placeholder="1" min="1" />
+                        </div>
+                        <div id="inspectFieldEpisode">
+                            <label class="inputLabel">Episodio:</label>
+                            <input is="emby-input" type="number" id="inspectEpisode" class="emby-input" placeholder="1" min="1" />
+                        </div>
+                        <div>
+                            <button type="button" id="btnInspectApi" class="raised emby-button" style="background: rgba(82, 181, 75, 0.2); color: #52B54B; border: 1px solid #52B54B; border-radius: 6px; padding: 0.6em 1.2em; font-weight: 600;">
+                                <span>🔍 Consultar API</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div id="inspectValidationMsg" style="margin-top: 0.6em; font-size: 0.9em; font-weight: 500;"></div>
+
+                    <div style="margin-top: 1em;">
+                        <!-- PRE CON ALTO CONTRASTE Y LEGIBILIDAD -->
+                        <pre id="inspectResult" style="background: rgba(255, 255, 255, 0.04); padding: 1.2em; border-radius: 8px; overflow-x: auto; max-height: 250px; font-family: monospace; font-size: 0.9em; color: #ffffff; border: 1px solid rgba(255, 255, 255, 0.16);">Los resultados de la consulta aparecerán aquí...</pre>
+                    </div>
+                </div>
+
+                <!-- CONTRIBUCIÓN COMUNITARIA (SOPORTA SERIES Y PELÍCULAS) -->
+                <div class="verticalSection" style="margin-top: 2em; padding: 1.2em; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 8px;">
+                    <h3 class="sectionTitle" style="color: #52B54B;">🤝 Contribuir Segmentos a la Comunidad (IntroDB.app)</h3>
+                    <p class="fieldDescription">Si posees los timestamps exactos de un episodio o película que aún no está en IntroDB, puedes enviarlo directamente a la base de datos comunitaria usando tu clave de API.</p>
+
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-top: 1em; align-items: flex-end;">
+                        <div>
+                            <label class="inputLabel">Tipo de Medio:</label>
+                            <select is="emby-select" id="subMediaType" class="emby-select">
+                                <option value="series">Serie de TV</option>
+                                <option value="movie">Película</option>
+                            </select>
+                        </div>
+                        <div style="min-width: 160px;">
+                            <label class="inputLabel">IMDb (Obligatorio):</label>
+                            <input is="emby-input" type="text" id="subImdbId" class="emby-input" placeholder="tt0903747" />
+                        </div>
+                        <div>
+                            <label class="inputLabel">Segmento:</label>
+                            <select is="emby-select" id="subSegmentType" class="emby-select">
+                                <option value="intro">Intro (Opening)</option>
+                                <option value="outro">Créditos (Ending)</option>
+                                <option value="recap">Recap (Resumen)</option>
+                                <option value="post_credits">Escena Post-Créditos</option>
+                            </select>
+                        </div>
+                        <div id="subFieldSeason">
+                            <label class="inputLabel">Temporada:</label>
+                            <input is="emby-input" type="number" id="subSeason" class="emby-input" placeholder="1" min="1" />
+                        </div>
+                        <div id="subFieldEpisode">
+                            <label class="inputLabel">Episodio:</label>
+                            <input is="emby-input" type="number" id="subEpisode" class="emby-input" placeholder="1" min="1" />
+                        </div>
+                        <div>
+                            <label class="inputLabel">Inicio (Seg):</label>
+                            <input is="emby-input" type="number" id="subStartSec" class="emby-input" placeholder="30" step="0.1" />
+                        </div>
+                        <div>
+                            <label class="inputLabel">Fin (Seg):</label>
+                            <input is="emby-input" type="number" id="subEndSec" class="emby-input" placeholder="120" step="0.1" />
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 1.2em; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                        <button type="button" id="btnSubmitSegment" class="raised emby-button" style="background: rgba(82, 181, 75, 0.25); color: #52B54B; border: 1px solid #52B54B; border-radius: 6px; padding: 0.6em 1.4em; font-weight: 600;">
+                            <span>🚀 Enviar a IntroDB.app</span>
+                        </button>
+                        <div id="subStatusMsg" style="font-size: 0.9em; font-weight: 500;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PESTAÑA 4: REGISTRO DE EVENTOS -->
+            <div id="tabContentLogs" style="display: none;">
+                <div class="verticalSection">
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                        <h3 class="sectionTitle" style="margin: 0;">Registro de Eventos</h3>
+                        <div style="display: flex; gap: 8px;">
+                            <button type="button" id="btnRefreshLogs" class="raised emby-button" style="font-size: 0.85em; border-radius: 6px;">🔄 Actualizar</button>
+                            <button type="button" id="btnClearLogs" class="raised emby-button" style="font-size: 0.85em; border-radius: 6px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.25); color: #ffffff;">🗑️ Limpiar Registro</button>
+                        </div>
+                    </div>
+                    <div style="margin-top: 1em; background: rgba(255, 255, 255, 0.03); border-radius: 8px; max-height: 420px; overflow-y: auto; border: 1px solid rgba(255, 255, 255, 0.15);">
+                        <table style="width: 100%; border-collapse: collapse; font-size: 0.9em; text-align: left;">
+                            <thead>
+                                <tr style="border-bottom: 1px solid rgba(255,255,255,0.18); background: rgba(255, 255, 255, 0.09); font-weight: 600;">
+                                    <th style="padding: 12px 16px; color: #ffffff;">Hora</th>
+                                    <th style="padding: 12px 16px; color: #ffffff;">Elemento</th>
+                                    <th style="padding: 12px 16px; color: #ffffff;">Acción</th>
+                                    <th style="padding: 12px 16px; color: #ffffff;">Detalles</th>
+                                </tr>
+                            </thead>
+                            <tbody id="logsTableBody">
+                                <tr>
+                                    <td colspan="4" style="padding: 15px; text-align: center; opacity: 0.6; color: #ffffff;">Cargando registro de eventos...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>

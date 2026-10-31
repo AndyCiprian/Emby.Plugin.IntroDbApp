@@ -1,0 +1,23 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v8.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v8.0": {
+      "Emby.Plugin.IntroDbApp/4.2.0.0": {
+        "runtime": {
+          "Emby.Plugin.IntroDbApp.dll": {}
+        }
+      }
+    }
+  },
+  "libraries": {
+    "Emby.Plugin.IntroDbApp/4.2.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    }
+  }
+}

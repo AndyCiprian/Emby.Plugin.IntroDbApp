@@ -1,0 +1,12 @@
+/home/servidor/introdb_plugin/bin/Emby.Plugin.IntroDbApp.deps.json
+/home/servidor/introdb_plugin/bin/Emby.Plugin.IntroDbApp.dll
+/home/servidor/introdb_plugin/bin/Emby.Plugin.IntroDbApp.pdb
+/home/servidor/introdb_plugin/obj/Release/net8.0/Emby.Plugin.IntroDbApp.csproj.AssemblyReference.cache
+/home/servidor/introdb_plugin/obj/Release/net8.0/Emby.Plugin.IntroDbApp.GeneratedMSBuildEditorConfig.editorconfig
+/home/servidor/introdb_plugin/obj/Release/net8.0/Emby.Plugin.IntroDbApp.AssemblyInfoInputs.cache
+/home/servidor/introdb_plugin/obj/Release/net8.0/Emby.Plugin.IntroDbApp.AssemblyInfo.cs
+/home/servidor/introdb_plugin/obj/Release/net8.0/Emby.Plugin.IntroDbApp.csproj.CoreCompileInputs.cache
+/home/servidor/introdb_plugin/obj/Release/net8.0/Emby.Plugin.IntroDbApp.dll
+/home/servidor/introdb_plugin/obj/Release/net8.0/refint/Emby.Plugin.IntroDbApp.dll
+/home/servidor/introdb_plugin/obj/Release/net8.0/Emby.Plugin.IntroDbApp.pdb
+/home/servidor/introdb_plugin/obj/Release/net8.0/ref/Emby.Plugin.IntroDbApp.dll
