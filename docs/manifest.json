@@ -1,0 +1,19 @@
+[
+  {
+    "guid": "f62e84d1-817a-4c48-8cf9-a6f951e73792",
+    "name": "IntroDB.app",
+    "description": "Detección y salto universal de intros, créditos y escenas post-créditos en Emby mediante IntroDB.app.",
+    "overview": "Sincroniza marcas de intros y créditos para clientes oficiales, Infuse y Kodi con o sin Premiere. Incluye explorador visual de capítulos, respaldo JSON y auto-expiración de ausencias.",
+    "owner": "Andy Ernesto Ciprian",
+    "category": "Playback",
+    "versions": [
+      {
+        "version": "4.3.0.0",
+        "changelog": "v4.3.0: Explorador & editor visual de capítulos, motor de respaldo y restauración JSON con navegador interactivo, auto-expiración progresiva de 14 días en caché 404, lista de exclusiones de salto, registro de eventos persistente en disco y badges de alto contraste.",
+        "targetFilename": "Emby.Plugin.IntroDbApp.dll",
+        "sourceUrl": "https://github.com/AndyCiprian/Emby.Plugin.IntroDbApp/releases/download/v4.3.0/Emby.Plugin.IntroDbApp.zip",
+        "timestamp": "2026-11-02T01:45:00Z"
+      }
+    ]
+  }
+]
