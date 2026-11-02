@@ -4,6 +4,7 @@ define([], function () {
     var pluginId = "f62e84d1-817a-4c48-8cf9-a6f951e73792";
     var taskId = "7a6ff3e0ba408c92a7cb46dd9104d5c5";
     var globalStatsData = null;
+    var logsAutoRefreshTimer = null;
 
     function cleanString(val) {
         if (!val) return "";
@@ -15,6 +16,7 @@ define([], function () {
             { btn: page.querySelector('#tabBtnConfig'), content: page.querySelector('#tabContentConfig') },
             { btn: page.querySelector('#tabBtnStats'), content: page.querySelector('#tabContentStats'), onLoad: function () { loadStats(page); } },
             { btn: page.querySelector('#tabBtnTools'), content: page.querySelector('#tabContentTools') },
+            { btn: page.querySelector('#tabBtnManager'), content: page.querySelector('#tabContentManager'), onLoad: function () { loadManagerTab(page); } },
             { btn: page.querySelector('#tabBtnLogs'), content: page.querySelector('#tabContentLogs'), onLoad: function () { loadLogs(page); } }
         ];
 
@@ -35,6 +37,18 @@ define([], function () {
                 tab.btn.style.color = '#52B54B';
                 tab.btn.style.borderColor = '#52B54B';
                 tab.content.style.display = 'block';
+
+                if (tab.btn.id === 'tabBtnLogs') {
+                    if (logsAutoRefreshTimer) clearInterval(logsAutoRefreshTimer);
+                    logsAutoRefreshTimer = setInterval(function () {
+                        loadLogs(page);
+                    }, 4000);
+                } else {
+                    if (logsAutoRefreshTimer) {
+                        clearInterval(logsAutoRefreshTimer);
+                        logsAutoRefreshTimer = null;
+                    }
+                }
 
                 if (tab.onLoad) {
                     tab.onLoad();
@@ -504,7 +518,9 @@ define([], function () {
     function loadLogs(page) {
         var tbody = page.querySelector('#logsTableBody');
         if (!tbody) return;
-        tbody.innerHTML = '<tr><td colspan="4" style="padding: 15px; text-align: center;">Consultando registros...</td></tr>';
+        if (!tbody.children || tbody.children.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" style="padding: 15px; text-align: center;">Consultando registros...</td></tr>';
+        }
 
         ApiClient.getJSON(ApiClient.getUrl("IntroDbApp/Logs")).then(function (logs) {
             if (typeof logs === 'string') {
@@ -516,26 +532,29 @@ define([], function () {
             }
 
             var html = '';
-            logs.forEach(function (log) {
-                var time = log.Timestamp ? new Date(log.Timestamp).toLocaleTimeString() : "";
+            var count = Math.min(logs.length, 300);
+            for (var i = 0; i < count; i++) {
+                var log = logs[i];
+                var dateObj = log.Timestamp ? new Date(log.Timestamp) : null;
+                var timeStr = dateObj ? (dateObj.toLocaleDateString() + ' ' + dateObj.toLocaleTimeString()) : "";
                 
                 var dot = "🟢";
-                var actionColor = "#52B54B";
+                var actionBadge = 'background: #15803d; color: #ffffff;';
                 if (log.Level === "warn") {
                     dot = "🟡";
-                    actionColor = "#ffd54f";
+                    actionBadge = 'background: #b45309; color: #ffffff;';
                 } else if (log.Level === "error") {
                     dot = "🔴";
-                    actionColor = "#ef5350";
+                    actionBadge = 'background: #b91c1c; color: #ffffff;';
                 }
 
                 html += '<tr style="border-bottom: 1px solid var(--line-background, rgba(128, 128, 128, 0.15));">';
-                html += '<td style="padding: 10px 14px; opacity: 0.85; font-family: monospace; white-space: nowrap;">' + time + '</td>';
-                html += '<td style="padding: 10px 14px; font-weight: 500;">' + (log.Title || "") + '</td>';
-                html += '<td style="padding: 10px 14px; font-weight: 600; color: ' + actionColor + ';">' + dot + ' ' + (log.Action || "") + '</td>';
-                html += '<td style="padding: 10px 14px; opacity: 0.9; font-size: 0.92em;">' + (log.Details || "") + '</td>';
+                html += '<td style="padding: 9px 12px; opacity: 0.85; font-family: monospace; white-space: nowrap; font-size: 0.88em;">' + timeStr + '</td>';
+                html += '<td style="padding: 9px 12px; font-weight: 600;">' + (log.Title || "") + '</td>';
+                html += '<td style="padding: 9px 12px; white-space: nowrap;"><span style="display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.82em; font-weight: 600; ' + actionBadge + '">' + dot + ' ' + (log.Action || "") + '</span></td>';
+                html += '<td style="padding: 9px 12px; opacity: 0.92; font-size: 0.9em; word-break: break-word;">' + (log.Details || "") + '</td>';
                 html += '</tr>';
-            });
+            }
             tbody.innerHTML = html;
         }).catch(function () {
             tbody.innerHTML = '<tr><td colspan="4" style="padding: 15px; text-align: center; color: #f44336;">Error al cargar registros.</td></tr>';
@@ -957,6 +976,748 @@ define([], function () {
         }
     }
 
+    var managerSeriesList = [];
+    var currentEditingEpisode = null;
+    var currentEpisodesList = [];
+    var excludedSeriesSet = new Set();
+
+    function formatTimeSec(sec) {
+        if (sec === null || sec === undefined || isNaN(sec)) return '--:--';
+        var totalSec = Math.floor(sec);
+        var h = Math.floor(totalSec / 3600);
+        var m = Math.floor((totalSec % 3600) / 60);
+        var s = totalSec % 60;
+        if (h > 0) {
+            return (h < 10 ? '0' + h : h) + ':' + (m < 10 ? '0' + m : m) + ':' + (s < 10 ? '0' + s : s);
+        }
+        return (m < 10 ? '0' + m : m) + ':' + (s < 10 ? '0' + s : s);
+    }
+
+    function openDirectoryPicker(initialPath, callback) {
+        if (window.Emby && Emby.importModule) {
+            Emby.importModule('./modules/directorybrowser/directorybrowser.js').then(function (DirectoryBrowser) {
+                var browserClass = DirectoryBrowser.default || DirectoryBrowser;
+                var picker = new browserClass();
+                picker.show({
+                    path: initialPath || '',
+                    includeDirectories: true,
+                    includeFiles: false,
+                    validateWriteable: true,
+                    header: 'Seleccionar Carpeta para Respaldos',
+                    callback: function (selectedPath) {
+                        if (selectedPath) callback(selectedPath);
+                        picker.close();
+                    }
+                });
+            }).catch(function (err) {
+                console.warn('DirectoryBrowser no pudo iniciarse:', err);
+                var manual = prompt('Introduce la ruta de la carpeta del servidor:', initialPath || '');
+                if (manual) callback(manual);
+            });
+        } else {
+            var manual = prompt('Introduce la ruta de la carpeta del servidor:', initialPath || '');
+            if (manual) callback(manual);
+        }
+    }
+
+    function openFilePicker(initialPath, callback) {
+        if (window.Emby && Emby.importModule) {
+            Emby.importModule('./modules/directorybrowser/directorybrowser.js').then(function (DirectoryBrowser) {
+                var browserClass = DirectoryBrowser.default || DirectoryBrowser;
+                var picker = new browserClass();
+                picker.show({
+                    path: initialPath || '',
+                    includeDirectories: true,
+                    includeFiles: true,
+                    validateWriteable: false,
+                    header: 'Seleccionar Archivo de Respaldo (.json)',
+                    callback: function (selectedPath) {
+                        if (selectedPath) callback(selectedPath);
+                        picker.close();
+                    }
+                });
+            }).catch(function (err) {
+                console.warn('FileBrowser no pudo iniciarse:', err);
+                var manual = prompt('Introduce la ruta del archivo JSON:', initialPath || '');
+                if (manual) callback(manual);
+            });
+        } else {
+            var manual = prompt('Introduce la ruta del archivo JSON:', initialPath || '');
+            if (manual) callback(manual);
+        }
+    }
+
+    function loadManagerTab(page) {
+        ApiClient.getJSON(ApiClient.getUrl("IntroDbApp/Stats")).then(function (data) {
+            if (typeof data === 'string') {
+                try { data = JSON.parse(data); } catch (e) {}
+            }
+            if (data) {
+                var txtBackup = page.querySelector('#txtBackupPath');
+                if (txtBackup) {
+                    if (data.BackupPath) {
+                        txtBackup.value = data.BackupPath;
+                    }
+                    if (data.DefaultServerBackupPath) {
+                        txtBackup.placeholder = 'Ej: ' + data.DefaultServerBackupPath;
+                    }
+                }
+                var txtImport = page.querySelector('#txtImportPath');
+                if (txtImport && data.DefaultServerBackupPath) {
+                    txtImport.placeholder = 'Ej: ' + data.DefaultServerBackupPath + '/introdb_backup_xxxx.json';
+                }
+                var lblDate = page.querySelector('#lblLastBackupDate');
+                if (lblDate) {
+                    lblDate.textContent = data.LastBackupDate || 'Nunca';
+                }
+                var lblCount = page.querySelector('#lblLastBackupCount');
+                if (lblCount) {
+                    lblCount.textContent = (data.LastBackupCount || 0).toString();
+                }
+            }
+        }).catch(function () {});
+
+        loadSeriesList(page);
+    }
+
+    function loadSeriesList(page) {
+        var select = page.querySelector('#managerSeriesSelect');
+        var exclusionsBox = page.querySelector('#exclusionsContainer');
+
+        if (select) {
+            select.innerHTML = '<option value="">Cargando series de la biblioteca...</option>';
+        }
+        if (exclusionsBox) {
+            exclusionsBox.innerHTML = '<div style="grid-column: 1 / -1; text-align: center; opacity: 0.6; padding: 15px;">Cargando lista de series...</div>';
+        }
+
+        fetch(ApiClient.getUrl('IntroDbApp/Series'), {
+            headers: { 'X-Emby-Token': ApiClient.accessToken() }
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (res) {
+            if (typeof res === 'string') {
+                try { res = JSON.parse(res); } catch (e) {}
+            }
+            var list = (res && (res.Series || res.series)) || (Array.isArray(res) ? res : []);
+            managerSeriesList = list;
+
+            excludedSeriesSet.clear();
+            var savedExcl = res.ExcludedSeriesIds || res.excludedSeriesIds || [];
+            if (Array.isArray(savedExcl)) {
+                savedExcl.forEach(function (id) { if (id) excludedSeriesSet.add(id.toString()); });
+            }
+            list.forEach(function (s) {
+                if (s.IsExcluded) excludedSeriesSet.add(s.Id.toString());
+            });
+
+            renderSeriesSelect(page, managerSeriesList);
+            renderExclusionsList(page, managerSeriesList);
+        })
+        .catch(function (err) {
+            if (select) {
+                select.innerHTML = '<option value="">Error cargando series</option>';
+            }
+            if (exclusionsBox) {
+                exclusionsBox.innerHTML = '<div style="grid-column: 1 / -1; color: #e53935; padding: 15px;">Error cargando series: ' + (err.message || err) + '</div>';
+            }
+        });
+    }
+
+    function renderSeriesSelect(page, list) {
+        var select = page.querySelector('#managerSeriesSelect');
+        if (!select) return;
+        if (!Array.isArray(list)) list = [];
+
+        var filterInput = page.querySelector('#managerSeriesFilter');
+        var filterText = (filterInput ? filterInput.value : '').toLowerCase().trim();
+
+        var filtered = list.filter(function (s) {
+            if (!filterText) return true;
+            return (s.Name || '').toLowerCase().indexOf(filterText) !== -1;
+        });
+
+        var html = '<option value="">-- Elige una serie (' + filtered.length + ') --</option>';
+        filtered.forEach(function (s) {
+            var meta = ' (' + (s.SeasonCount || 1) + ' temp, ' + (s.EpisodeCount || 0) + ' eps)';
+            html += '<option value="' + s.Id + '">' + (s.Name || 'Sin título') + meta + '</option>';
+        });
+        select.innerHTML = html;
+    }
+
+    function renderExclusionsList(page, list) {
+        var container = page.querySelector('#exclusionsContainer');
+        if (!container) return;
+        if (!Array.isArray(list)) list = [];
+
+        var filterInput = page.querySelector('#txtSearchExclusions');
+        var filterText = (filterInput ? filterInput.value : '').toLowerCase().trim();
+
+        var filtered = list.filter(function (s) {
+            if (!filterText) return true;
+            return (s.Name || '').toLowerCase().indexOf(filterText) !== -1;
+        });
+
+        if (!filtered.length) {
+            container.innerHTML = '<div style="grid-column: 1 / -1; text-align: center; opacity: 0.6; padding: 15px;">No se encontraron series coincidentes.</div>';
+            return;
+        }
+
+        var html = '';
+        filtered.forEach(function (s) {
+            var isChecked = excludedSeriesSet.has(s.Id.toString());
+            var checkedAttr = isChecked ? 'checked' : '';
+            var selectedClass = isChecked ? ' is-selected' : '';
+            var imdbText = s.ImdbId ? (' · ' + s.ImdbId) : '';
+            html += '<label class="exclusion-item' + selectedClass + '" data-id="' + s.Id + '" data-name="' + (s.Name || '').toLowerCase() + '" style="display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 6px; cursor: pointer; user-select: none;">';
+            html += '<input type="checkbox" class="chk-exclusion" value="' + s.Id + '" ' + checkedAttr + ' style="accent-color: #52B54B; width: 18px; height: 18px; cursor: pointer; margin: 0; flex-shrink: 0;" />';
+            html += '<div style="flex: 1; min-width: 0;">';
+            html += '<span style="font-weight: 600; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">' + (s.Name || 'Serie') + '</span>';
+            html += '<span style="opacity: 0.7; font-size: 0.85em;">' + (s.SeasonCount || 1) + ' temp, ' + (s.EpisodeCount || 0) + ' eps' + imdbText + '</span>';
+            html += '</div>';
+            html += '</label>';
+        });
+        container.innerHTML = html;
+    }
+
+    function loadSeriesEpisodes(page, seriesId) {
+        var tbody = page.querySelector('#managerEpisodesTableBody');
+        var infoBox = page.querySelector('#managerSeriesInfoBox');
+        var titleText = page.querySelector('#managerSeriesTitleText');
+        var metaText = page.querySelector('#managerSeriesMetaText');
+        var inlineEditor = page.querySelector('#managerInlineEditorCard');
+
+        if (inlineEditor) inlineEditor.style.display = 'none';
+
+        if (!seriesId) {
+            if (infoBox) infoBox.style.display = 'none';
+            if (tbody) tbody.innerHTML = '<tr><td colspan="5" style="padding: 18px; text-align: center; opacity: 0.6;">Selecciona una serie arriba para listar y editar sus episodios.</td></tr>';
+            return;
+        }
+
+        var selectedSeries = managerSeriesList.find(function (s) { return s.Id === seriesId; });
+        if (selectedSeries && infoBox) {
+            infoBox.style.display = 'block';
+            if (titleText) titleText.textContent = selectedSeries.Name || 'Serie';
+            if (metaText) {
+                var meta = (selectedSeries.SeasonCount || 1) + ' Temporadas · ' + (selectedSeries.EpisodeCount || 0) + ' Episodios';
+                if (selectedSeries.ImdbId) meta += ' · IMDb: ' + selectedSeries.ImdbId;
+                metaText.textContent = meta;
+            }
+        }
+
+        if (tbody) {
+            tbody.innerHTML = '<tr><td colspan="5" style="padding: 18px; text-align: center; opacity: 0.6;">Cargando episodios y marcadores...</td></tr>';
+        }
+
+        fetch(ApiClient.getUrl('IntroDbApp/Series/' + seriesId + '/Episodes'), {
+            headers: { 'X-Emby-Token': ApiClient.accessToken() }
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (res) {
+            if (typeof res === 'string') {
+                try { res = JSON.parse(res); } catch (e) {}
+            }
+            var list = (res && (res.Episodes || res.episodes)) || (Array.isArray(res) ? res : []);
+            currentEpisodesList = list;
+            renderEpisodesTable(page, currentEpisodesList);
+        })
+        .catch(function (err) {
+            if (tbody) {
+                tbody.innerHTML = '<tr><td colspan="5" style="padding: 18px; text-align: center; color: #e53935;">Error cargando episodios: ' + (err.message || err) + '</td></tr>';
+            }
+        });
+    }
+
+    function renderEpisodesTable(page, episodes) {
+        var tbody = page.querySelector('#managerEpisodesTableBody');
+        if (!tbody) return;
+        if (!Array.isArray(episodes)) episodes = [];
+
+        if (!episodes.length) {
+            tbody.innerHTML = '<tr><td colspan="5" style="padding: 18px; text-align: center; opacity: 0.6;">No se encontraron episodios registrados para esta serie.</td></tr>';
+            return;
+        }
+
+        var html = '';
+        episodes.forEach(function (ep) {
+            var sNum = (ep.Season !== undefined && ep.Season !== null) ? ep.Season : (ep.SeasonNumber || 1);
+            var eNum = (ep.EpisodeNumber !== undefined && ep.EpisodeNumber !== null) ? ep.EpisodeNumber : 1;
+            var epCode = 'S' + (sNum < 10 ? '0' + sNum : sNum) + 'E' + (eNum < 10 ? '0' + eNum : eNum);
+            var dur = ep.DurationSec !== undefined ? ep.DurationSec : ep.DurationSeconds;
+            var durationStr = formatTimeSec(dur);
+
+            var introStartVal = ep.IntroStartSec !== undefined ? ep.IntroStartSec : ep.IntroStartSeconds;
+            var introEndVal = ep.IntroEndSec !== undefined ? ep.IntroEndSec : ep.IntroEndSeconds;
+            var credStartVal = ep.CreditsStartSec !== undefined ? ep.CreditsStartSec : ep.CreditsStartSeconds;
+            var postStartVal = ep.PostCreditsStartSec !== undefined ? ep.PostCreditsStartSec : ep.PostCreditsStartSeconds;
+
+            var badges = '';
+            if (introStartVal !== null && introStartVal !== undefined) {
+                badges += '<span class="marker-badge marker-badge-intro">Intro: ' + formatTimeSec(introStartVal) + ' - ' + formatTimeSec(introEndVal) + ' (' + Math.round(introEndVal - introStartVal) + 's)</span>';
+            }
+            if (credStartVal !== null && credStartVal !== undefined) {
+                badges += '<span class="marker-badge marker-badge-credits">Créditos: ' + formatTimeSec(credStartVal) + '</span>';
+            }
+            if (postStartVal !== null && postStartVal !== undefined) {
+                badges += '<span class="marker-badge marker-badge-postcredits">Post-Créditos: ' + formatTimeSec(postStartVal) + '</span>';
+            }
+            if (!badges) {
+                badges = '<span class="marker-badge marker-badge-none">⚪ Sin marcadores</span>';
+            }
+
+            html += '<tr data-episode-id="' + ep.Id + '" style="border-bottom: 1px solid var(--line-background, rgba(128, 128, 128, 0.15));">';
+            html += '<td style="padding: 10px 14px; font-weight: bold; color: #52B54B;">' + epCode + '</td>';
+            html += '<td style="padding: 10px 14px; font-weight: 500;">' + (ep.Name || 'Episodio') + '</td>';
+            html += '<td style="padding: 10px 14px; opacity: 0.8; font-size: 0.88em;">' + durationStr + '</td>';
+            html += '<td style="padding: 10px 14px;" class="col-badges">' + badges + '</td>';
+            html += '<td style="padding: 10px 14px; text-align: center;">';
+            html += '<button type="button" class="raised emby-button btn-edit-chapter" data-id="' + ep.Id + '" style="padding: 0.35em 0.85em; font-size: 0.82em; border-radius: 6px;">✏️ Editar</button>';
+            html += '</td>';
+            html += '</tr>';
+        });
+
+        tbody.innerHTML = html;
+
+        tbody.querySelectorAll('.btn-edit-chapter').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var id = btn.getAttribute('data-id');
+                var ep = currentEpisodesList.find(function (e) { return e.Id === id; });
+                if (ep) {
+                    openInlineChapterEditor(page, ep);
+                }
+            });
+        });
+    }
+
+    function openInlineChapterEditor(page, ep) {
+        currentEditingEpisode = ep;
+        var card = page.querySelector('#managerInlineEditorCard');
+        var lblName = page.querySelector('#lblEditEpisodeName');
+        var statusMsg = page.querySelector('#inlineEditorStatusMsg');
+
+        var sNum = (ep.Season !== undefined && ep.Season !== null) ? ep.Season : (ep.SeasonNumber || 1);
+        var eNum = (ep.EpisodeNumber !== undefined && ep.EpisodeNumber !== null) ? ep.EpisodeNumber : 1;
+        var epCode = 'S' + (sNum < 10 ? '0' + sNum : sNum) + 'E' + (eNum < 10 ? '0' + eNum : eNum);
+
+        if (lblName) lblName.textContent = epCode + ' - ' + (ep.Name || 'Episodio');
+        if (statusMsg) statusMsg.textContent = '';
+
+        var numIntroStart = page.querySelector('#numEditIntroStart');
+        var numIntroEnd = page.querySelector('#numEditIntroEnd');
+        var numCredStart = page.querySelector('#numEditCreditsStart');
+        var numCredEnd = page.querySelector('#numEditCreditsEnd');
+        var numPostStart = page.querySelector('#numEditPostCreditsStart');
+        var numPostEnd = page.querySelector('#numEditPostCreditsEnd');
+
+        var introStartVal = ep.IntroStartSec !== undefined ? ep.IntroStartSec : ep.IntroStartSeconds;
+        var introEndVal = ep.IntroEndSec !== undefined ? ep.IntroEndSec : ep.IntroEndSeconds;
+        var credStartVal = ep.CreditsStartSec !== undefined ? ep.CreditsStartSec : ep.CreditsStartSeconds;
+        var postStartVal = ep.PostCreditsStartSec !== undefined ? ep.PostCreditsStartSec : ep.PostCreditsStartSeconds;
+
+        if (numIntroStart) numIntroStart.value = (introStartVal !== null && introStartVal !== undefined) ? introStartVal : '';
+        if (numIntroEnd) numIntroEnd.value = (introEndVal !== null && introEndVal !== undefined) ? introEndVal : '';
+        if (numCredStart) numCredStart.value = (credStartVal !== null && credStartVal !== undefined) ? credStartVal : '';
+        if (numCredEnd) numCredEnd.value = '';
+        if (numPostStart) numPostStart.value = (postStartVal !== null && postStartVal !== undefined) ? postStartVal : '';
+        if (numPostEnd) numPostEnd.value = '';
+
+        if (card) {
+            card.style.display = 'block';
+            card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+    }
+
+    function saveInlineChapters(page) {
+        if (!currentEditingEpisode) return;
+
+        var statusMsg = page.querySelector('#inlineEditorStatusMsg');
+        var numIntroStart = page.querySelector('#numEditIntroStart');
+        var numIntroEnd = page.querySelector('#numEditIntroEnd');
+        var numCredStart = page.querySelector('#numEditCreditsStart');
+        var numCredEnd = page.querySelector('#numEditCreditsEnd');
+        var numPostStart = page.querySelector('#numEditPostCreditsStart');
+        var numPostEnd = page.querySelector('#numEditPostCreditsEnd');
+
+        var parseVal = function (input) {
+            if (!input || !input.value.trim()) return null;
+            var v = parseFloat(input.value);
+            return isNaN(v) ? null : v;
+        };
+
+        var introStart = parseVal(numIntroStart);
+        var introEnd = parseVal(numIntroEnd);
+        var credStart = parseVal(numCredStart);
+        var credEnd = parseVal(numCredEnd);
+        var postStart = parseVal(numPostStart);
+        var postEnd = parseVal(numPostEnd);
+
+        if (introStart !== null && introEnd !== null && introEnd <= introStart) {
+            if (statusMsg) {
+                statusMsg.style.color = '#e53935';
+                statusMsg.textContent = '⚠️ Fin de Intro debe ser mayor que Inicio de Intro.';
+            }
+            return;
+        }
+        if (credStart !== null && credEnd !== null && credEnd <= credStart) {
+            if (statusMsg) {
+                statusMsg.style.color = '#e53935';
+                statusMsg.textContent = '⚠️ Fin de Créditos debe ser mayor que Inicio de Créditos.';
+            }
+            return;
+        }
+        if (postStart !== null && postEnd !== null && postEnd <= postStart) {
+            if (statusMsg) {
+                statusMsg.style.color = '#e53935';
+                statusMsg.textContent = '⚠️ Fin de Post-Créditos debe ser mayor que Inicio de Post-Créditos.';
+            }
+            return;
+        }
+
+        if (statusMsg) {
+            statusMsg.style.color = '#52B54B';
+            statusMsg.textContent = 'Guardando capítulos en Emby...';
+        }
+
+        var payload = {
+            EpisodeId: currentEditingEpisode.Id,
+            ItemId: currentEditingEpisode.Id,
+            IntroStartSec: introStart,
+            IntroEndSec: introEnd,
+            CreditsStartSec: credStart,
+            PostCreditsStartSec: postStart,
+            IntroStartSeconds: introStart,
+            IntroEndSeconds: introEnd,
+            CreditsStartSeconds: credStart,
+            PostCreditsStartSeconds: postStart
+        };
+
+        fetch(ApiClient.getUrl('IntroDbApp/Chapters/Update'), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Emby-Token': ApiClient.accessToken()
+            },
+            body: JSON.stringify(payload)
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (res) {
+            var success = Boolean(res && (res.Success === true || res.success === true));
+            var msgText = (res && (res.Message || res.message)) || 'Capítulos guardados.';
+            if (statusMsg) {
+                statusMsg.style.color = success ? '#52B54B' : '#e53935';
+                statusMsg.textContent = (success ? '✓ ' : 'Error: ') + msgText;
+            }
+            if (success) {
+                currentEditingEpisode.IntroStartSec = introStart;
+                currentEditingEpisode.IntroEndSec = introEnd;
+                currentEditingEpisode.CreditsStartSec = credStart;
+                currentEditingEpisode.PostCreditsStartSec = postStart;
+                currentEditingEpisode.IntroStartSeconds = introStart;
+                currentEditingEpisode.IntroEndSeconds = introEnd;
+                currentEditingEpisode.CreditsStartSeconds = credStart;
+                currentEditingEpisode.PostCreditsStartSeconds = postStart;
+                renderEpisodesTable(page, currentEpisodesList);
+            }
+        })
+        .catch(function (err) {
+            if (statusMsg) {
+                statusMsg.style.color = '#e53935';
+                statusMsg.textContent = 'Error: ' + (err.message || err);
+            }
+        });
+    }
+
+    function exportBackup(page) {
+        var statusMsg = page.querySelector('#exportStatusMsg');
+        var pathInput = page.querySelector('#txtBackupPath');
+        var path = pathInput ? pathInput.value.trim() : '';
+
+        if (!path) {
+            var placeholder = pathInput ? pathInput.placeholder : '';
+            if (placeholder && !placeholder.startsWith('Ej:')) {
+                path = placeholder;
+                pathInput.value = path;
+            } else {
+                if (statusMsg) {
+                    statusMsg.style.color = '#e53935';
+                    statusMsg.textContent = '⚠️ Ingresa una ruta o pulsa "🔍 Explorar" para seleccionar la carpeta donde guardar el respaldo.';
+                }
+                return;
+            }
+        }
+
+        if (statusMsg) {
+            statusMsg.style.color = '#52B54B';
+            statusMsg.textContent = 'Generando respaldo JSON de marcadores...';
+        }
+
+        fetch(ApiClient.getUrl('IntroDbApp/Backup/Export'), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Emby-Token': ApiClient.accessToken()
+            },
+            body: JSON.stringify({ TargetDirectory: path, BackupDirectory: path })
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (res) {
+            var success = Boolean(res && (res.Success === true || res.success === true));
+            var msgText = (res && (res.Message || res.message)) || 'Respaldo generado.';
+            if (statusMsg) {
+                statusMsg.style.color = success ? '#52B54B' : '#e53935';
+                statusMsg.textContent = (success ? '✓ ' : 'Error: ') + msgText;
+            }
+            if (success && res.FilePath) {
+                var importInput = page.querySelector('#txtImportPath');
+                if (importInput) importInput.value = res.FilePath;
+                var lblDate = page.querySelector('#lblLastBackupDate');
+                if (lblDate) lblDate.textContent = new Date().toLocaleString();
+                var lblCount = page.querySelector('#lblLastBackupCount');
+                if (lblCount && res.TotalItems !== undefined) lblCount.textContent = res.TotalItems.toString();
+            }
+        })
+        .catch(function (err) {
+            if (statusMsg) {
+                statusMsg.style.color = '#e53935';
+                statusMsg.textContent = 'Error: ' + (err.message || err);
+            }
+        });
+    }
+
+    function importBackup(page) {
+        var statusMsg = page.querySelector('#importStatusMsg');
+        var pathInput = page.querySelector('#txtImportPath');
+        var path = pathInput ? pathInput.value.trim() : '';
+
+        if (!path) {
+            if (statusMsg) {
+                statusMsg.style.color = '#e53935';
+                statusMsg.textContent = '⚠️ Especifica la ruta completa del archivo JSON a restaurar.';
+            }
+            return;
+        }
+
+        if (!confirm('¿Deseas restaurar los marcadores del archivo JSON seleccionado? Se actualizarán los capítulos en los elementos coincidentes de Emby.')) {
+            return;
+        }
+
+        if (statusMsg) {
+            statusMsg.style.color = '#60a5fa';
+            statusMsg.textContent = 'Restaurando marcadores en la base de datos...';
+        }
+
+        fetch(ApiClient.getUrl('IntroDbApp/Backup/Import'), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Emby-Token': ApiClient.accessToken()
+            },
+            body: JSON.stringify({ FilePath: path, BackupFilePath: path })
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (res) {
+            var success = Boolean(res && (res.Success === true || res.success === true));
+            var msgText = (res && (res.Message || res.message)) || 'Restauración completada.';
+            if (statusMsg) {
+                statusMsg.style.color = success ? '#52B54B' : '#e53935';
+                statusMsg.textContent = (success ? '✓ ' : 'Error: ') + msgText;
+            }
+            var select = page.querySelector('#managerSeriesSelect');
+            if (select && select.value) {
+                loadSeriesEpisodes(page, select.value);
+            }
+        })
+        .catch(function (err) {
+            if (statusMsg) {
+                statusMsg.style.color = '#e53935';
+                statusMsg.textContent = 'Error: ' + (err.message || err);
+            }
+        });
+    }
+
+    function saveExclusions(page) {
+        var statusMsg = page.querySelector('#exclusionsStatusMsg');
+        var ids = Array.from(excludedSeriesSet);
+
+        if (statusMsg) {
+            statusMsg.style.color = '#52B54B';
+            statusMsg.textContent = 'Guardando lista de exclusiones (' + ids.length + ' series)...';
+        }
+
+        fetch(ApiClient.getUrl('IntroDbApp/Exclusions'), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Emby-Token': ApiClient.accessToken()
+            },
+            body: JSON.stringify({ ExcludedSeriesIds: ids })
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (res) {
+            var success = Boolean(res && (res.Success === true || res.success === true));
+            var count = (res && res.ExcludedCount !== undefined) ? res.ExcludedCount : ids.length;
+            var msgText = (res && (res.Message || res.message)) || ('Se guardaron ' + count + ' series excluidas de saltos automáticos.');
+            if (statusMsg) {
+                statusMsg.style.color = success ? '#52B54B' : '#e53935';
+                statusMsg.textContent = (success ? '✓ ' : 'Error: ') + msgText;
+            }
+            managerSeriesList.forEach(function (s) {
+                s.IsExcluded = excludedSeriesSet.has(s.Id.toString());
+            });
+        })
+        .catch(function (err) {
+            if (statusMsg) {
+                statusMsg.style.color = '#e53935';
+                statusMsg.textContent = 'Error: ' + (err.message || err);
+            }
+        });
+    }
+
+    function setupManagerEventListeners(page) {
+        var seriesSelect = page.querySelector('#managerSeriesSelect');
+        if (seriesSelect) {
+            seriesSelect.addEventListener('change', function () {
+                loadSeriesEpisodes(page, seriesSelect.value);
+            });
+        }
+
+        var seriesFilter = page.querySelector('#managerSeriesFilter');
+        if (seriesFilter) {
+            seriesFilter.addEventListener('input', function () {
+                renderSeriesSelect(page, managerSeriesList);
+            });
+        }
+
+        var btnRefreshSeries = page.querySelector('#btnRefreshManagerSeries');
+        if (btnRefreshSeries) {
+            btnRefreshSeries.addEventListener('click', function () {
+                loadSeriesList(page);
+            });
+        }
+
+        var btnCancelEdit = page.querySelector('#btnCancelEpisodeEdit');
+        if (btnCancelEdit) {
+            btnCancelEdit.addEventListener('click', function () {
+                var card = page.querySelector('#managerInlineEditorCard');
+                if (card) card.style.display = 'none';
+                currentEditingEpisode = null;
+            });
+        }
+
+        var btnSaveChapters = page.querySelector('#btnSaveEpisodeChapters');
+        if (btnSaveChapters) {
+            btnSaveChapters.addEventListener('click', function () {
+                saveInlineChapters(page);
+            });
+        }
+
+        var btnBrowseBackup = page.querySelector('#btnBrowseBackupPath');
+        if (btnBrowseBackup) {
+            btnBrowseBackup.addEventListener('click', function () {
+                var currentPath = (page.querySelector('#txtBackupPath') ? page.querySelector('#txtBackupPath').value : '') || '';
+                openDirectoryPicker(currentPath, function (selectedPath) {
+                    if (page.querySelector('#txtBackupPath')) page.querySelector('#txtBackupPath').value = selectedPath;
+                });
+            });
+        }
+
+        var btnExport = page.querySelector('#btnExportBackup');
+        if (btnExport) {
+            btnExport.addEventListener('click', function () {
+                exportBackup(page);
+            });
+        }
+
+        var btnBrowseImport = page.querySelector('#btnBrowseImportFile');
+        if (btnBrowseImport) {
+            btnBrowseImport.addEventListener('click', function () {
+                var currentPath = (page.querySelector('#txtImportPath') ? page.querySelector('#txtImportPath').value : '') || (page.querySelector('#txtBackupPath') ? page.querySelector('#txtBackupPath').value : '') || '';
+                openFilePicker(currentPath, function (selectedPath) {
+                    if (page.querySelector('#txtImportPath')) page.querySelector('#txtImportPath').value = selectedPath;
+                });
+            });
+        }
+
+        var btnImport = page.querySelector('#btnImportBackup');
+        if (btnImport) {
+            btnImport.addEventListener('click', function () {
+                importBackup(page);
+            });
+        }
+
+        var exclusionsContainer = page.querySelector('#exclusionsContainer');
+        if (exclusionsContainer) {
+            exclusionsContainer.addEventListener('change', function (e) {
+                var chk = e.target;
+                if (chk && chk.classList.contains('chk-exclusion')) {
+                    var val = chk.value;
+                    var label = chk.closest('.exclusion-item');
+                    if (chk.checked) {
+                        excludedSeriesSet.add(val);
+                        if (label) label.classList.add('is-selected');
+                    } else {
+                        excludedSeriesSet.delete(val);
+                        if (label) label.classList.remove('is-selected');
+                    }
+                }
+            });
+        }
+
+        var searchExcl = page.querySelector('#txtSearchExclusions');
+        if (searchExcl) {
+            searchExcl.addEventListener('input', function () {
+                var term = searchExcl.value.toLowerCase().trim();
+                var items = page.querySelectorAll('#exclusionsContainer .exclusion-item');
+                items.forEach(function (item) {
+                    var name = item.getAttribute('data-name') || '';
+                    item.style.display = (!term || name.indexOf(term) !== -1) ? 'flex' : 'none';
+                });
+            });
+        }
+
+        var btnSelectAll = page.querySelector('#btnExclusionsSelectAll');
+        if (btnSelectAll) {
+            btnSelectAll.addEventListener('click', function () {
+                var items = page.querySelectorAll('#exclusionsContainer .exclusion-item');
+                items.forEach(function (item) {
+                    if (item.style.display !== 'none') {
+                        var chk = item.querySelector('.chk-exclusion');
+                        if (chk) {
+                            chk.checked = true;
+                            excludedSeriesSet.add(chk.value);
+                            item.classList.add('is-selected');
+                        }
+                    }
+                });
+            });
+        }
+
+        var btnDeselectAll = page.querySelector('#btnExclusionsDeselectAll');
+        if (btnDeselectAll) {
+            btnDeselectAll.addEventListener('click', function () {
+                var items = page.querySelectorAll('#exclusionsContainer .exclusion-item');
+                items.forEach(function (item) {
+                    if (item.style.display !== 'none') {
+                        var chk = item.querySelector('.chk-exclusion');
+                        if (chk) {
+                            chk.checked = false;
+                            excludedSeriesSet.delete(chk.value);
+                            item.classList.remove('is-selected');
+                        }
+                    }
+                });
+            });
+        }
+
+        var btnSaveExcl = page.querySelector('#btnSaveExclusions');
+        if (btnSaveExcl) {
+            btnSaveExcl.addEventListener('click', function () {
+                saveExclusions(page);
+            });
+        }
+    }
+
     return function (view, params) {
         view.addEventListener('viewshow', function () {
             if (!view._isIntroDbBound) {
@@ -966,6 +1727,7 @@ define([], function () {
                 setupTools(view);
                 setupUserFilter(view);
                 setupApiKeyValidation(view);
+                setupManagerEventListeners(view);
 
                 var modeSelect = view.querySelector('#selectOperationMode');
                 var modeDesc = view.querySelector('#modeDescription');

@@ -1,6 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using MediaBrowser.Controller.Entities;
@@ -76,6 +79,65 @@ namespace IntroDbApp.Services
         public string? ImdbId { get; set; }
     }
 
+    [Route("/IntroDbApp/Series", "GET", Summary = "Obtiene la lista de todas las series en la biblioteca")]
+    public class GetSeriesRequest : IReturn<object> { }
+
+    [Route("/IntroDbApp/Series/{SeriesId}/Episodes", "GET", Summary = "Obtiene los episodios y sus capítulos de una serie")]
+    public class GetSeriesEpisodesRequest : IReturn<object>
+    {
+        public string SeriesId { get; set; } = "";
+    }
+
+    [Route("/IntroDbApp/Chapters/Update", "POST", Summary = "Actualiza o inserta marcas de capítulos en un episodio")]
+    public class UpdateEpisodeChapterRequest : IReturn<object>
+    {
+        public string EpisodeId { get; set; } = "";
+        public double? IntroStartSec { get; set; }
+        public double? IntroEndSec { get; set; }
+        public double? CreditsStartSec { get; set; }
+        public double? PostCreditsStartSec { get; set; }
+    }
+
+    [Route("/IntroDbApp/Exclusions", "POST", Summary = "Actualiza la lista de series excluidas de saltos")]
+    public class UpdateExclusionsRequest : IReturn<object>
+    {
+        public List<string> ExcludedSeriesIds { get; set; } = new List<string>();
+    }
+
+    [Route("/IntroDbApp/Backup/Export", "POST", Summary = "Exporta todas las marcas de capítulos a un archivo JSON de respaldo")]
+    public class ExportBackupRequest : IReturn<object>
+    {
+        public string? TargetDirectory { get; set; }
+    }
+
+    [Route("/IntroDbApp/Backup/Import", "POST", Summary = "Restaura marcas de capítulos desde un archivo JSON de respaldo")]
+    public class ImportBackupRequest : IReturn<object>
+    {
+        public string FilePath { get; set; } = "";
+    }
+
+    public class BackupItemEntry
+    {
+        public string? ImdbId { get; set; }
+        public string? SeriesName { get; set; }
+        public string? Title { get; set; }
+        public int Season { get; set; } = 1;
+        public int Episode { get; set; } = 1;
+        public bool IsMovie { get; set; } = false;
+        public double? IntroStartSec { get; set; }
+        public double? IntroEndSec { get; set; }
+        public double? CreditsStartSec { get; set; }
+        public double? PostCreditsStartSec { get; set; }
+    }
+
+    public class BackupFilePayload
+    {
+        public string ExportDate { get; set; } = "";
+        public string PluginVersion { get; set; } = "4.3.0";
+        public int TotalItems { get; set; }
+        public List<BackupItemEntry> Items { get; set; } = new List<BackupItemEntry>();
+    }
+
     public class IntroDbApiService : IService
     {
         private readonly ILogger _logger;
@@ -88,6 +150,7 @@ namespace IntroDbApp.Services
             _libraryManager = libraryManager;
             _itemRepository = itemRepository;
             _logger = logManager.GetLogger(GetType().Name);
+            IntroDbActivityLogger.SystemLogger = _logger;
             _apiClient = new IntroDbApiClient(_logger);
         }
 
@@ -123,7 +186,7 @@ namespace IntroDbApp.Services
 
             return new
             {
-                Version = Plugin.Instance?.Version.ToString(3) ?? "4.2.3",
+                Version = Plugin.Instance?.Version.ToString(3) ?? "4.3.0",
                 LastScanStatus = lastScanRaw,
                 LastScanState = scanState,
                 LastScanDate = scanDate,
@@ -136,10 +199,19 @@ namespace IntroDbApp.Services
                 TotalEpisodesWithIntro = config?.TotalEpisodesWithIntro ?? 0,
                 TotalEpisodesWithCredits = config?.TotalEpisodesWithCredits ?? 0,
                 EstimatedSecondsSaved = config?.EstimatedSecondsSaved ?? 0,
-                Cached404Count = config?.NotFoundIds?.Count ?? 0,
+                Cached404Count = config?.GetNotFoundCount() ?? 0,
+                CacheTtlDays = config?.CacheTtlDays ?? 14,
                 OperationMode = config?.OperationMode ?? "IntroDbPrimary",
                 RealtimeScanOnLibraryChange = config?.RealtimeScanOnLibraryChange ?? true,
                 UserMetrics = config?.UserMetrics ?? new List<UserMetric>(),
+
+                // Respaldo y Exclusiones
+                BackupPath = config?.BackupPath ?? string.Empty,
+                DefaultServerBackupPath = Plugin.Instance?.AppPaths != null ? Path.Combine(Plugin.Instance.AppPaths.ProgramDataPath, "backups") : string.Empty,
+                LastBackupDate = config?.LastBackupDate != null && config.LastBackupDate != DateTime.MinValue ? config.LastBackupDate.ToString("yyyy-MM-dd HH:mm:ss") : "Nunca",
+                LastBackupCount = config?.LastBackupCount ?? 0,
+                ExcludedSeriesCount = config?.AutoSkipExcludedSeriesIds?.Count ?? 0,
+                AutoSkipExcludedSeriesIds = config?.AutoSkipExcludedSeriesIds ?? new List<string>(),
 
                 // Estadísticas de API Key Comunitaria (Persistencia y Validación)
                 ApiKey = config?.ApiKey ?? "",
@@ -173,13 +245,13 @@ namespace IntroDbApp.Services
         public object Post(ClearCacheRequest request)
         {
             var config = Plugin.Instance?.Configuration;
-            int count = config?.NotFoundIds?.Count ?? 0;
+            int count = config?.GetNotFoundCount() ?? 0;
             if (config != null)
             {
                 config.NotFoundIds.Clear();
                 Plugin.Instance?.SaveConfiguration();
             }
-            IntroDbActivityLogger.Log("Memoria Caché", count > 0 ? $"Depuración completada. Se liberaron {count} registros del índice de ausencias." : "La memoria caché de no encontrados (404) ya estaba vacía (0 elementos).", "info");
+            IntroDbActivityLogger.Log("Memoria Caché", count > 0 ? $"Depuración completada. Se liberaron {count} registros del índice de ausencias (404)." : "La memoria caché de no encontrados (404) ya estaba vacía (0 elementos).", "info");
             return new { ClearedCount = count, AlreadyEmpty = count == 0 };
         }
 
@@ -279,6 +351,7 @@ namespace IntroDbApp.Services
                     var ordered = chapters.OrderBy(c => c.StartPositionTicks).ToList();
                     for (int cIdx = 0; cIdx < ordered.Count; cIdx++) ordered[cIdx].ChapterIndex = cIdx;
                     _itemRepository.SaveChapters(ep.InternalId, ordered);
+                    config.RemoveNotFound($"{cleanImdb}_S{season}E{episodeNum}");
                     updatedCount++;
                 }
             }
@@ -305,6 +378,7 @@ namespace IntroDbApp.Services
                     var ordered = chapters.OrderBy(c => c.StartPositionTicks).ToList();
                     for (int cIdx = 0; cIdx < ordered.Count; cIdx++) ordered[cIdx].ChapterIndex = cIdx;
                     _itemRepository.SaveChapters(movie.InternalId, ordered);
+                    config.RemoveNotFound($"movie_{cleanImdb}");
                     updatedCount++;
                 }
             }
@@ -623,6 +697,530 @@ namespace IntroDbApp.Services
                 );
             }
             return new { Success = success, Message = message };
+        }
+
+        public object Get(GetSeriesRequest request)
+        {
+            var config = Plugin.Instance?.Configuration;
+            var excluded = config?.AutoSkipExcludedSeriesIds ?? new List<string>();
+
+            var seriesList = _libraryManager.GetItemList(new InternalItemsQuery
+            {
+                IncludeItemTypes = new[] { nameof(Series) },
+                IsVirtualItem = false,
+                Recursive = true
+            }).OfType<Series>().OrderBy(s => s.Name).Select(s =>
+            {
+                var imdbId = s.GetProviderId(MetadataProviders.Imdb) ?? "";
+                var seasons = _libraryManager.GetItemList(new InternalItemsQuery
+                {
+                    Parent = s,
+                    IncludeItemTypes = new[] { nameof(Season) },
+                    Recursive = false
+                });
+                var episodes = _libraryManager.GetItemList(new InternalItemsQuery
+                {
+                    AncestorIds = new[] { s.InternalId },
+                    IncludeItemTypes = new[] { nameof(Episode) },
+                    Recursive = true
+                });
+
+                return new
+                {
+                    Id = s.Id.ToString(),
+                    Name = s.Name,
+                    ImdbId = imdbId,
+                    Year = s.ProductionYear,
+                    SeasonCount = seasons.Length > 0 ? seasons.Length : 1,
+                    EpisodeCount = episodes.Length,
+                    IsExcluded = excluded.Contains(s.Id.ToString())
+                };
+            }).ToList();
+
+            return new
+            {
+                Success = true,
+                TotalCount = seriesList.Count,
+                Series = seriesList,
+                ExcludedSeriesIds = excluded
+            };
+        }
+
+        public object Get(GetSeriesEpisodesRequest request)
+        {
+            if (string.IsNullOrWhiteSpace(request.SeriesId))
+            {
+                return new { Success = false, Message = "SeriesId es requerido." };
+            }
+
+            Series? series = null;
+            if (Guid.TryParse(request.SeriesId, out var seriesGuid))
+            {
+                series = _libraryManager.GetItemById(seriesGuid) as Series;
+            }
+
+            if (series == null)
+            {
+                series = _libraryManager.GetItemList(new InternalItemsQuery
+                {
+                    IncludeItemTypes = new[] { nameof(Series) },
+                    Recursive = true
+                }).OfType<Series>().FirstOrDefault(s => s.Id.ToString().Equals(request.SeriesId, StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (series == null)
+            {
+                return new { Success = false, Message = $"No se encontró la serie con ID '{request.SeriesId}'." };
+            }
+
+            var episodes = _libraryManager.GetItemList(new InternalItemsQuery
+            {
+                AncestorIds = new[] { series.InternalId },
+                IncludeItemTypes = new[] { nameof(Episode) },
+                Recursive = true
+            }).OfType<Episode>().OrderBy(e => e.ParentIndexNumber ?? 1).ThenBy(e => e.IndexNumber ?? 1).Select(ep =>
+            {
+                var chapters = _itemRepository.GetChapters(ep)?.ToList() ?? new List<ChapterInfo>();
+                var introStart = chapters.FirstOrDefault(c => c.MarkerType == MarkerType.IntroStart);
+                var introEnd = chapters.FirstOrDefault(c => c.MarkerType == MarkerType.IntroEnd);
+                var creditsStart = chapters.FirstOrDefault(c => c.MarkerType == MarkerType.CreditsStart || (c.Name != null && c.Name.StartsWith("Credits", StringComparison.OrdinalIgnoreCase)));
+                var postCredits = chapters.FirstOrDefault(c => c.Name != null && c.Name.Equals("Post Credits", StringComparison.OrdinalIgnoreCase));
+
+                double durSec = Math.Round((double)(ep.RunTimeTicks ?? 0L) / 10_000_000.0, 1);
+
+                return new
+                {
+                    Id = ep.Id.ToString(),
+                    Name = ep.Name,
+                    Season = ep.ParentIndexNumber ?? 1,
+                    EpisodeNumber = ep.IndexNumber ?? 1,
+                    DurationSec = durSec,
+                    HasIntro = introStart != null && introEnd != null,
+                    IntroStartSec = introStart != null ? Math.Round((double)introStart.StartPositionTicks / 10_000_000.0, 1) : (double?)null,
+                    IntroEndSec = introEnd != null ? Math.Round((double)introEnd.StartPositionTicks / 10_000_000.0, 1) : (double?)null,
+                    HasCredits = creditsStart != null,
+                    CreditsStartSec = creditsStart != null ? Math.Round((double)creditsStart.StartPositionTicks / 10_000_000.0, 1) : (double?)null,
+                    HasPostCredits = postCredits != null,
+                    PostCreditsStartSec = postCredits != null ? Math.Round((double)postCredits.StartPositionTicks / 10_000_000.0, 1) : (double?)null
+                };
+            }).ToList();
+
+            return new
+            {
+                Success = true,
+                SeriesId = series.Id.ToString(),
+                SeriesName = series.Name,
+                TotalEpisodes = episodes.Count,
+                Episodes = episodes
+            };
+        }
+
+        public object Post(UpdateEpisodeChapterRequest request)
+        {
+            if (string.IsNullOrWhiteSpace(request.EpisodeId) || !Guid.TryParse(request.EpisodeId, out var epGuid))
+            {
+                return new { Success = false, Message = "EpisodeId válido requerido." };
+            }
+
+            var ep = _libraryManager.GetItemById(epGuid) as Episode;
+            if (ep == null)
+            {
+                return new { Success = false, Message = $"No se encontró el episodio con ID '{request.EpisodeId}'." };
+            }
+
+            double durationSeconds = (ep.RunTimeTicks ?? 0L) / 10_000_000.0;
+            if (durationSeconds <= 0) durationSeconds = 3600.0;
+            double safeMax = Math.Max(durationSeconds - 1.0, 1.0);
+
+            var chapters = _itemRepository.GetChapters(ep)?.ToList() ?? new List<ChapterInfo>();
+
+            if (request.IntroStartSec.HasValue && request.IntroEndSec.HasValue)
+            {
+                double start = Math.Max(0.0, Math.Min(request.IntroStartSec.Value, safeMax));
+                double end = Math.Max(start + 1.0, Math.Min(request.IntroEndSec.Value, safeMax));
+
+                chapters.RemoveAll(c => c.MarkerType == MarkerType.IntroStart || c.MarkerType == MarkerType.IntroEnd || (c.Name != null && c.Name.StartsWith("Intro", StringComparison.OrdinalIgnoreCase)));
+                chapters.Add(new ChapterInfo
+                {
+                    Name = "Intro",
+                    MarkerType = MarkerType.IntroStart,
+                    StartPositionTicks = (long)(start * 10_000_000L)
+                });
+                chapters.Add(new ChapterInfo
+                {
+                    Name = "Intro End",
+                    MarkerType = MarkerType.IntroEnd,
+                    StartPositionTicks = (long)(end * 10_000_000L)
+                });
+            }
+
+            if (request.CreditsStartSec.HasValue)
+            {
+                double creditsStart = Math.Max(0.0, Math.Min(request.CreditsStartSec.Value, safeMax));
+                chapters.RemoveAll(c => c.MarkerType == MarkerType.CreditsStart || (c.Name != null && c.Name.StartsWith("Credits", StringComparison.OrdinalIgnoreCase)));
+                chapters.Add(new ChapterInfo
+                {
+                    Name = "Credits",
+                    MarkerType = MarkerType.CreditsStart,
+                    StartPositionTicks = (long)(creditsStart * 10_000_000L)
+                });
+                chapters.Add(new ChapterInfo
+                {
+                    Name = "Credits End",
+                    MarkerType = MarkerType.Chapter,
+                    StartPositionTicks = (long)(durationSeconds * 10_000_000L)
+                });
+            }
+
+            if (request.PostCreditsStartSec.HasValue)
+            {
+                double postStart = Math.Max(0.0, Math.Min(request.PostCreditsStartSec.Value, safeMax));
+                chapters.RemoveAll(c => c.Name != null && c.Name.Equals("Post Credits", StringComparison.OrdinalIgnoreCase));
+                chapters.Add(new ChapterInfo
+                {
+                    Name = "Post Credits",
+                    MarkerType = MarkerType.Chapter,
+                    StartPositionTicks = (long)(postStart * 10_000_000L)
+                });
+            }
+
+            var ordered = chapters.OrderBy(c => c.StartPositionTicks).ToList();
+            for (int i = 0; i < ordered.Count; i++) ordered[i].ChapterIndex = i;
+            _itemRepository.SaveChapters(ep.InternalId, ordered);
+
+            IntroDbActivityLogger.Log(
+                $"{ep.SeriesName} S{ep.ParentIndexNumber}E{ep.IndexNumber}",
+                "Capítulos Editados Manualmente",
+                "info",
+                $"Intro: {request.IntroStartSec}s-{request.IntroEndSec}s | Créditos: {request.CreditsStartSec}s | Post-Créditos: {request.PostCreditsStartSec}s"
+            );
+
+            return new { Success = true, Message = $"Capítulos actualizados exitosamente para '{ep.Name}'." };
+        }
+
+        public object Post(UpdateExclusionsRequest request)
+        {
+            var config = Plugin.Instance?.Configuration;
+            int count = 0;
+            if (config != null)
+            {
+                config.AutoSkipExcludedSeriesIds = request.ExcludedSeriesIds ?? new List<string>();
+                count = config.AutoSkipExcludedSeriesIds.Count;
+                Plugin.Instance?.SaveConfiguration();
+            }
+
+            IntroDbActivityLogger.Log("Lista de Exclusiones", "Exclusiones Actualizadas", "info", $"{count} series configuradas para omisión de saltos automáticos.");
+
+            return new
+            {
+                Success = true,
+                ExcludedCount = count,
+                Message = $"Se guardaron {count} series excluidas de saltos automáticos."
+            };
+        }
+
+        public object Post(ExportBackupRequest request)
+        {
+            var config = Plugin.Instance?.Configuration;
+            string defaultServerDir = Plugin.Instance?.AppPaths != null ? Path.Combine(Plugin.Instance.AppPaths.ProgramDataPath, "backups") : "";
+            string targetDir = !string.IsNullOrWhiteSpace(request.TargetDirectory)
+                ? request.TargetDirectory.Trim()
+                : (!string.IsNullOrWhiteSpace(config?.BackupPath) ? config.BackupPath : defaultServerDir);
+
+            if (string.IsNullOrWhiteSpace(targetDir))
+            {
+                return new { Success = false, Message = "Debes especificar o seleccionar una carpeta de destino válida en el servidor." };
+            }
+
+            try
+            {
+                if (!Directory.Exists(targetDir))
+                {
+                    Directory.CreateDirectory(targetDir);
+                }
+
+                var episodes = _libraryManager.GetItemList(new InternalItemsQuery
+                {
+                    IncludeItemTypes = new[] { nameof(Episode) },
+                    IsVirtualItem = false,
+                    Recursive = true
+                }).OfType<Episode>().ToList();
+
+                var movies = _libraryManager.GetItemList(new InternalItemsQuery
+                {
+                    IncludeItemTypes = new[] { nameof(Movie) },
+                    IsVirtualItem = false,
+                    Recursive = true
+                }).OfType<Movie>().ToList();
+
+                var backupItems = new List<BackupItemEntry>();
+
+                foreach (var ep in episodes)
+                {
+                    var chapters = _itemRepository.GetChapters(ep)?.ToList();
+                    if (chapters == null || chapters.Count == 0) continue;
+
+                    var introStart = chapters.FirstOrDefault(c => c.MarkerType == MarkerType.IntroStart);
+                    var introEnd = chapters.FirstOrDefault(c => c.MarkerType == MarkerType.IntroEnd);
+                    var creditsStart = chapters.FirstOrDefault(c => c.MarkerType == MarkerType.CreditsStart || (c.Name != null && c.Name.StartsWith("Credits", StringComparison.OrdinalIgnoreCase)));
+                    var postCredits = chapters.FirstOrDefault(c => c.Name != null && c.Name.Equals("Post Credits", StringComparison.OrdinalIgnoreCase));
+
+                    if (introStart == null && creditsStart == null && postCredits == null) continue;
+
+                    string? imdb = ep.Series?.GetProviderId(MetadataProviders.Imdb) ?? ep.GetProviderId(MetadataProviders.Imdb);
+
+                    backupItems.Add(new BackupItemEntry
+                    {
+                        ImdbId = imdb,
+                        SeriesName = ep.SeriesName,
+                        Title = ep.Name,
+                        Season = ep.ParentIndexNumber ?? 1,
+                        Episode = ep.IndexNumber ?? 1,
+                        IsMovie = false,
+                        IntroStartSec = introStart != null ? Math.Round((double)introStart.StartPositionTicks / 10_000_000.0, 1) : null,
+                        IntroEndSec = introEnd != null ? Math.Round((double)introEnd.StartPositionTicks / 10_000_000.0, 1) : null,
+                        CreditsStartSec = creditsStart != null ? Math.Round((double)creditsStart.StartPositionTicks / 10_000_000.0, 1) : null,
+                        PostCreditsStartSec = postCredits != null ? Math.Round((double)postCredits.StartPositionTicks / 10_000_000.0, 1) : null
+                    });
+                }
+
+                foreach (var movie in movies)
+                {
+                    var chapters = _itemRepository.GetChapters(movie)?.ToList();
+                    if (chapters == null || chapters.Count == 0) continue;
+
+                    var creditsStart = chapters.FirstOrDefault(c => c.MarkerType == MarkerType.CreditsStart || (c.Name != null && c.Name.StartsWith("Credits", StringComparison.OrdinalIgnoreCase)));
+                    var postCredits = chapters.FirstOrDefault(c => c.Name != null && c.Name.Equals("Post Credits", StringComparison.OrdinalIgnoreCase));
+
+                    if (creditsStart == null && postCredits == null) continue;
+
+                    string? imdb = movie.GetProviderId(MetadataProviders.Imdb);
+
+                    backupItems.Add(new BackupItemEntry
+                    {
+                        ImdbId = imdb,
+                        SeriesName = null,
+                        Title = movie.Name,
+                        Season = 0,
+                        Episode = 0,
+                        IsMovie = true,
+                        IntroStartSec = null,
+                        IntroEndSec = null,
+                        CreditsStartSec = creditsStart != null ? Math.Round((double)creditsStart.StartPositionTicks / 10_000_000.0, 1) : null,
+                        PostCreditsStartSec = postCredits != null ? Math.Round((double)postCredits.StartPositionTicks / 10_000_000.0, 1) : null
+                    });
+                }
+
+                var payload = new BackupFilePayload
+                {
+                    ExportDate = DateTime.UtcNow.ToString("o"),
+                    PluginVersion = Plugin.Instance?.Version.ToString(3) ?? "4.3.0",
+                    TotalItems = backupItems.Count,
+                    Items = backupItems
+                };
+
+                string fileName = $"introdb_backup_{DateTime.UtcNow:yyyyMMdd_HHmmss}.json";
+                string fullPath = Path.Combine(targetDir, fileName);
+
+                var jsonOptions = new JsonSerializerOptions { WriteIndented = true };
+                string jsonString = JsonSerializer.Serialize(payload, jsonOptions);
+                File.WriteAllText(fullPath, jsonString);
+
+                if (config != null)
+                {
+                    config.BackupPath = targetDir;
+                    config.LastBackupDate = DateTime.UtcNow;
+                    config.LastBackupCount = backupItems.Count;
+                    Plugin.Instance?.SaveConfiguration();
+                }
+
+                IntroDbActivityLogger.Log("Sistema de Respaldo", "Respaldo JSON Exportado", "success", $"{backupItems.Count} títulos guardados en {fileName}");
+
+                return new
+                {
+                    Success = true,
+                    FilePath = fullPath,
+                    FileName = fileName,
+                    TotalItems = backupItems.Count,
+                    Message = $"Respaldo generado exitosamente con {backupItems.Count} elementos en '{fullPath}'."
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.Error($"IntroDB.app: Error exportando respaldo JSON: {ex.Message}");
+                return new { Success = false, Message = $"Error exportando respaldo: {ex.Message}" };
+            }
+        }
+
+        public object Post(ImportBackupRequest request)
+        {
+            if (string.IsNullOrWhiteSpace(request.FilePath) || !File.Exists(request.FilePath))
+            {
+                return new { Success = false, Message = "Archivo de respaldo no encontrado en la ruta especificada." };
+            }
+
+            try
+            {
+                string jsonString = File.ReadAllText(request.FilePath);
+                var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                var payload = JsonSerializer.Deserialize<BackupFilePayload>(jsonString, options);
+
+                if (payload == null || payload.Items == null || payload.Items.Count == 0)
+                {
+                    return new { Success = false, Message = "El archivo de respaldo no contiene elementos válidos." };
+                }
+
+                int restoredCount = 0;
+
+                foreach (var item in payload.Items)
+                {
+                    if (item.IsMovie)
+                    {
+                        var movies = _libraryManager.GetItemList(new InternalItemsQuery
+                        {
+                            IncludeItemTypes = new[] { nameof(Movie) },
+                            Recursive = true
+                        }).OfType<Movie>().Where(m =>
+                        {
+                            if (!string.IsNullOrEmpty(item.ImdbId))
+                            {
+                                return string.Equals(m.GetProviderId(MetadataProviders.Imdb), item.ImdbId, StringComparison.OrdinalIgnoreCase);
+                            }
+                            return string.Equals(m.Name, item.Title, StringComparison.OrdinalIgnoreCase);
+                        }).ToList();
+
+                        foreach (var m in movies)
+                        {
+                            var chapters = _itemRepository.GetChapters(m)?.ToList() ?? new List<ChapterInfo>();
+                            bool mod = false;
+
+                            if (item.CreditsStartSec.HasValue)
+                            {
+                                chapters.RemoveAll(c => c.MarkerType == MarkerType.CreditsStart || (c.Name != null && c.Name.StartsWith("Credits", StringComparison.OrdinalIgnoreCase)));
+                                chapters.Add(new ChapterInfo
+                                {
+                                    Name = "Credits",
+                                    MarkerType = MarkerType.CreditsStart,
+                                    StartPositionTicks = (long)(item.CreditsStartSec.Value * 10_000_000L)
+                                });
+                                mod = true;
+                            }
+
+                            if (item.PostCreditsStartSec.HasValue)
+                            {
+                                chapters.RemoveAll(c => c.Name != null && c.Name.Equals("Post Credits", StringComparison.OrdinalIgnoreCase));
+                                chapters.Add(new ChapterInfo
+                                {
+                                    Name = "Post Credits",
+                                    MarkerType = MarkerType.Chapter,
+                                    StartPositionTicks = (long)(item.PostCreditsStartSec.Value * 10_000_000L)
+                                });
+                                mod = true;
+                            }
+
+                            if (mod)
+                            {
+                                var ordered = chapters.OrderBy(c => c.StartPositionTicks).ToList();
+                                for (int i = 0; i < ordered.Count; i++) ordered[i].ChapterIndex = i;
+                                _itemRepository.SaveChapters(m.InternalId, ordered);
+                                restoredCount++;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        var episodes = _libraryManager.GetItemList(new InternalItemsQuery
+                        {
+                            IncludeItemTypes = new[] { nameof(Episode) },
+                            Recursive = true
+                        }).OfType<Episode>().Where(ep =>
+                        {
+                            if (!string.IsNullOrEmpty(item.ImdbId))
+                            {
+                                var sImdb = ep.Series?.GetProviderId(MetadataProviders.Imdb) ?? ep.GetProviderId(MetadataProviders.Imdb);
+                                if (!string.Equals(sImdb, item.ImdbId, StringComparison.OrdinalIgnoreCase)) return false;
+                            }
+                            else if (!string.IsNullOrEmpty(item.SeriesName))
+                            {
+                                if (!string.Equals(ep.SeriesName, item.SeriesName, StringComparison.OrdinalIgnoreCase)) return false;
+                            }
+
+                            return (ep.ParentIndexNumber ?? 1) == item.Season && (ep.IndexNumber ?? 1) == item.Episode;
+                        }).ToList();
+
+                        foreach (var ep in episodes)
+                        {
+                            var chapters = _itemRepository.GetChapters(ep)?.ToList() ?? new List<ChapterInfo>();
+                            bool mod = false;
+
+                            if (item.IntroStartSec.HasValue && item.IntroEndSec.HasValue)
+                            {
+                                chapters.RemoveAll(c => c.MarkerType == MarkerType.IntroStart || c.MarkerType == MarkerType.IntroEnd || (c.Name != null && c.Name.StartsWith("Intro", StringComparison.OrdinalIgnoreCase)));
+                                chapters.Add(new ChapterInfo
+                                {
+                                    Name = "Intro",
+                                    MarkerType = MarkerType.IntroStart,
+                                    StartPositionTicks = (long)(item.IntroStartSec.Value * 10_000_000L)
+                                });
+                                chapters.Add(new ChapterInfo
+                                {
+                                    Name = "Intro End",
+                                    MarkerType = MarkerType.IntroEnd,
+                                    StartPositionTicks = (long)(item.IntroEndSec.Value * 10_000_000L)
+                                });
+                                mod = true;
+                            }
+
+                            if (item.CreditsStartSec.HasValue)
+                            {
+                                chapters.RemoveAll(c => c.MarkerType == MarkerType.CreditsStart || (c.Name != null && c.Name.StartsWith("Credits", StringComparison.OrdinalIgnoreCase)));
+                                chapters.Add(new ChapterInfo
+                                {
+                                    Name = "Credits",
+                                    MarkerType = MarkerType.CreditsStart,
+                                    StartPositionTicks = (long)(item.CreditsStartSec.Value * 10_000_000L)
+                                });
+                                mod = true;
+                            }
+
+                            if (item.PostCreditsStartSec.HasValue)
+                            {
+                                chapters.RemoveAll(c => c.Name != null && c.Name.Equals("Post Credits", StringComparison.OrdinalIgnoreCase));
+                                chapters.Add(new ChapterInfo
+                                {
+                                    Name = "Post Credits",
+                                    MarkerType = MarkerType.Chapter,
+                                    StartPositionTicks = (long)(item.PostCreditsStartSec.Value * 10_000_000L)
+                                });
+                                mod = true;
+                            }
+
+                            if (mod)
+                            {
+                                var ordered = chapters.OrderBy(c => c.StartPositionTicks).ToList();
+                                for (int i = 0; i < ordered.Count; i++) ordered[i].ChapterIndex = i;
+                                _itemRepository.SaveChapters(ep.InternalId, ordered);
+                                restoredCount++;
+                            }
+                        }
+                    }
+                }
+
+                IntroDbActivityLogger.Log("Sistema de Respaldo", "Respaldo JSON Importado", "success", $"Se restauraron {restoredCount} elementos desde {Path.GetFileName(request.FilePath)}");
+
+                return new
+                {
+                    Success = true,
+                    RestoredCount = restoredCount,
+                    TotalInBackup = payload.Items.Count,
+                    Message = $"Se restauraron marcas de capítulos en {restoredCount} elementos de tu biblioteca con éxito."
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.Error($"IntroDB.app: Error importando respaldo JSON: {ex.Message}");
+                return new { Success = false, Message = $"Error al procesar archivo de respaldo: {ex.Message}" };
+            }
         }
     }
 }

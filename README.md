@@ -1,6 +1,6 @@
 # IntroDB.app Plugin for Emby Server
 
-[![Release](https://img.shields.io/badge/Release-v4.2.3%20Universal-52B54B?style=for-the-badge&logo=emby)](https://github.com/)
+[![Release](https://img.shields.io/badge/Release-v4.3.0%20Universal-52B54B?style=for-the-badge&logo=emby)](https://github.com/AndyCiprian/Emby.Plugin.IntroDbApp/releases)
 [![Emby Server](https://img.shields.io/badge/Emby%20Server->=%204.8.0.0-00A4DC?style=for-the-badge&logo=emby)](https://emby.media/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)](LICENSE)
 [![IntroDB API](https://img.shields.io/badge/Powered%20By-IntroDB.app-orange?style=for-the-badge)](https://introdb.app/)
@@ -13,6 +13,9 @@ Autonomous and hybrid plugin for **Emby Server** that automatically detects, fet
 
 - **Universal Client Compatibility:** Works out of the box with all official Emby clients (Web, Android, iOS, Apple TV, Smart TVs) as well as popular third-party players like **Infuse**, **Kodi** (EmbyCon/Jellyfin sync), and VLC.
 - **No Emby Premiere Required:** Native chapter marker injection (`MarkerType.IntroStart`, `MarkerType.IntroEnd`, `MarkerType.CreditsStart`) allows non-Premiere servers and clients to jump through intros and credits seamlessly.
+- **Visual Chapter Explorer & Inline Editor:** Browse your library series and episodes, inspect current Intro/Credits/Post-Credits timestamps, and edit chapter markers directly into Emby without restarting the server.
+- **JSON Backup & Restoration Engine:** Export the entirety of your library chapter markers to structured, portable JSON files and restore them anytime with interactive folder browsing (`directorybrowser`) or manual path entry.
+- **Auto-Skip Exclusions:** Exclude specific series (e.g. anime with favorite openings/endings) from real-time auto-skipping and telemetry tracking.
 - **Real-Time Playback Tracking:** Automatically detects forward jumps and skips during playback via server-side session tracking, measuring saved time per user profile.
 - **Automated On-Demand & Ingestion Scanning:** Injects markers the instant a media item is played or newly added to your library.
 - **Direct Community Submissions:** Submit verified timestamps directly to IntroDB.app from Emby's dashboard with live API verification and rate-limit tracking.
@@ -30,6 +33,18 @@ The plugin supports four distinct operating strategies to suit any server setup:
 | 🔄 `Hybrid` | **TheIntroDB First** | Prioritizes TheIntroDB. IntroDB.app acts as an intelligent safety net to recover missing intros and credits. |
 | 🛡️ `Standalone` | **Autonomous** | Operates exclusively with IntroDB.app, independent of any secondary providers. |
 | ⚡ `Overwrite` | **Force Overwrite** | Overwrites all existing chapter markers with verified data from IntroDB.app. |
+
+---
+
+## 🆕 What's New in v4.3.0 (Universal Edition)
+
+- 🎨 **Visual Chapter Explorer & Inline Editor:** Complete visual browsing of all series and episodes in your Emby library, displaying high-contrast status badges and allowing direct editing of Intro, Credits, and Post-Credits markers without server reboots.
+- 💾 **Universal JSON Backup & Restoration:** Export all chapter markers into structured, portable JSON files. Restore them seamlessly using Emby's native interactive directory browser (`directorybrowser`) or manual system paths.
+- 🚫 **Auto-Skip Exclusions:** Choose which series should bypass automated skips and telemetry (ideal for favorite anime openings/endings).
+- 📜 **Disk-Persisted Activity Logger:** Full audit log persisted in `introdb_activity.json` that survives server restarts, tracking scans with 200-item milestone checkpoints, library ingestions, and chapter updates.
+- 🔄 **14-Day Progressive 404 Auto-Expiration (TTL):** Missing items cached in `NotFoundIds` automatically expire after 14 days and are progressively re-checked in safe batches of up to 30 per run. When community users contribute missing segments, the plugin automatically recovers them and decreases the 404 cache count.
+- ⚡ **Resilient Real-Time Ingestion:** Event-driven detection on `ItemAdded` with multi-attempt delay logic ensuring metadata providers assign IMDb IDs before querying upstream.
+- 👁️ **High-Contrast Theme Compatibility:** Custom solid badges (`#ffffff` text on deep royal blue, amber, purple, and slate) guarantee 100% legibility across light, dark, and custom themes.
 
 ---
 

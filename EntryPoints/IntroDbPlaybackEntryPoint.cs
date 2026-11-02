@@ -39,6 +39,7 @@ namespace IntroDbApp.EntryPoints
             _libraryManager = libraryManager;
             _itemRepository = itemRepository;
             _logger = logManager.GetLogger(GetType().Name);
+            IntroDbActivityLogger.SystemLogger = _logger;
             _apiClient = new IntroDbApiClient(_logger);
         }
 
@@ -183,6 +184,12 @@ namespace IntroDbApp.EntryPoints
                     {
                         if (previous.ItemId == item.Id.ToString())
                         {
+                            // Verificar exclusión de serie para saltos y telemetría
+                            if (item is Episode epSkip && config.AutoSkipExcludedSeriesIds != null && epSkip.Series != null && config.AutoSkipExcludedSeriesIds.Contains(epSkip.Series.Id.ToString()))
+                            {
+                                _sessionTracker[sessionId] = (currentTicks, item.Id.ToString(), previous.UserId, previous.UserName);
+                                return;
+                            }
                             long jumpTicks = currentTicks - previous.PositionTicks;
                             // Salto hacia adelante significativo (mínimo 15 segundos = 150_000_000 ticks)
                             if (jumpTicks > 150_000_000L && previous.PositionTicks > 0)
@@ -270,6 +277,11 @@ namespace IntroDbApp.EntryPoints
                                 var config = Plugin.Instance?.Configuration;
                                 if (config != null && config.Enabled)
                                 {
+                                    if (item is Episode epStop && config.AutoSkipExcludedSeriesIds != null && epStop.Series != null && config.AutoSkipExcludedSeriesIds.Contains(epStop.Series.Id.ToString()))
+                                    {
+                                        _sessionTracker.Remove(sessionId);
+                                        return;
+                                    }
                                     var chapters = _itemRepository.GetChapters(item)?.ToList();
                                     var creditsStart = chapters?.FirstOrDefault(c => c.MarkerType == MarkerType.CreditsStart || (c.Name != null && c.Name.StartsWith("Credits", StringComparison.OrdinalIgnoreCase)));
                                     if (creditsStart != null)
@@ -307,25 +319,46 @@ namespace IntroDbApp.EntryPoints
             bool hasIntro = chapters.Any(c => c.MarkerType == MarkerType.IntroStart);
             bool hasCredits = chapters.Any(c => c.MarkerType == MarkerType.CreditsStart);
 
+            int season = ep.ParentIndexNumber ?? 1;
+            int episodeNum = ep.IndexNumber ?? 1;
+
             // Modo TheIntroDB Principal (Hybrid): Si ya tiene intro y outro, no hacemos nada
             if (config.OperationMode == "Hybrid" && hasIntro && hasCredits)
             {
+                if (triggerSource.Contains("Biblioteca"))
+                {
+                    IntroDbActivityLogger.Log($"{ep.SeriesName} S{season}E{episodeNum}", triggerSource, "info", "Episodio completo: ya contaba con Intro y Créditos en modo Híbrido.");
+                }
                 return;
             }
 
             var series = ep.Series;
             var imdbId = series?.GetProviderId(MetadataProviders.Imdb) ?? ep.GetProviderId(MetadataProviders.Imdb);
+
+            // Si es un nuevo elemento agregado por biblioteca, damos tiempo y reintentos para que Emby baje metadatos
+            if (string.IsNullOrWhiteSpace(imdbId) && triggerSource.Contains("Biblioteca"))
+            {
+                for (int retry = 0; retry < 3 && string.IsNullOrWhiteSpace(imdbId); retry++)
+                {
+                    await Task.Delay(5000).ConfigureAwait(false);
+                    series = ep.Series;
+                    imdbId = series?.GetProviderId(MetadataProviders.Imdb) ?? ep.GetProviderId(MetadataProviders.Imdb);
+                }
+            }
+
             if (string.IsNullOrWhiteSpace(imdbId))
             {
+                IntroDbActivityLogger.Log($"{ep.SeriesName ?? ep.Name}", triggerSource, "warn", "Nuevo episodio detectado, pero aún no tiene IMDb ID asignado en Emby.");
                 return;
             }
 
-            int season = ep.ParentIndexNumber ?? 1;
-            int episodeNum = ep.IndexNumber ?? 1;
-
             var segments = await _apiClient.GetEpisodeSegmentsAsync(imdbId, season, episodeNum, CancellationToken.None).ConfigureAwait(false);
-            if (segments == null)
+            if (segments == null || (segments.Intro == null && segments.Outro == null && segments.PostCredits == null))
             {
+                if (triggerSource.Contains("Biblioteca"))
+                {
+                    IntroDbActivityLogger.Log($"{ep.SeriesName} S{season}E{episodeNum}", triggerSource, "info", "Episodio analizado; actualmente sin marcadores registrados en IntroDB.app.");
+                }
                 return;
             }
 
@@ -401,17 +434,33 @@ namespace IntroDbApp.EntryPoints
                 modified = true;
             }
 
+            if (config.FetchPostCredits && segments.PostCredits != null)
+            {
+                chapters.RemoveAll(c => c.Name != null && c.Name.Equals("Post Credits", StringComparison.OrdinalIgnoreCase));
+                chapters.Add(new ChapterInfo
+                {
+                    Name = "Post Credits",
+                    MarkerType = MarkerType.Chapter,
+                    StartPositionTicks = segments.PostCredits.StartMs * 10000
+                });
+                config.AddedPostCreditsCount++;
+                modified = true;
+            }
+
             if (modified)
             {
                 var ordered = chapters.OrderBy(c => c.StartPositionTicks).ToList();
                 for (int i = 0; i < ordered.Count; i++) ordered[i].ChapterIndex = i;
                 _itemRepository.SaveChapters(ep.InternalId, ordered);
 
+                config.RemoveNotFound($"{imdbId}_S{season}E{episodeNum}");
+
+                string tags = $"{(shouldApplyIntro ? "Intro " : "")}{(shouldApplyCredits ? "Créditos " : "")}{(segments.PostCredits != null ? "Post-Créditos" : "")}".Trim();
                 IntroDbActivityLogger.Log(
                     $"{ep.SeriesName} S{season}E{episodeNum}",
                     triggerSource,
                     "success",
-                    $"Modo: {config.OperationMode} | Intro: {segments.Intro != null}, Outro: {segments.Outro != null}"
+                    $"Inyectado con éxito: {tags} (Modo: {config.OperationMode})"
                 );
                 Plugin.Instance?.SaveConfiguration();
             }
@@ -424,18 +473,36 @@ namespace IntroDbApp.EntryPoints
 
             if (config.OperationMode == "Hybrid" && hasCredits)
             {
+                if (triggerSource.Contains("Biblioteca"))
+                {
+                    IntroDbActivityLogger.Log(movie.Name, triggerSource, "info", "Película completa: ya contaba con Créditos en modo Híbrido.");
+                }
                 return;
             }
 
             var imdbId = movie.GetProviderId(MetadataProviders.Imdb);
+            if (string.IsNullOrWhiteSpace(imdbId) && triggerSource.Contains("Biblioteca"))
+            {
+                for (int retry = 0; retry < 3 && string.IsNullOrWhiteSpace(imdbId); retry++)
+                {
+                    await Task.Delay(5000).ConfigureAwait(false);
+                    imdbId = movie.GetProviderId(MetadataProviders.Imdb);
+                }
+            }
+
             if (string.IsNullOrWhiteSpace(imdbId))
             {
+                IntroDbActivityLogger.Log(movie.Name, triggerSource, "warn", "Nueva película detectada, pero aún no tiene IMDb ID asignado en Emby.");
                 return;
             }
 
             var segments = await _apiClient.GetMovieSegmentsAsync(imdbId, CancellationToken.None).ConfigureAwait(false);
-            if (segments == null)
+            if (segments == null || (segments.Outro == null && segments.PostCredits == null))
             {
+                if (triggerSource.Contains("Biblioteca"))
+                {
+                    IntroDbActivityLogger.Log(movie.Name, triggerSource, "info", "Película analizada; actualmente sin marcadores registrados en IntroDB.app.");
+                }
                 return;
             }
 
@@ -482,6 +549,8 @@ namespace IntroDbApp.EntryPoints
                 var ordered = chapters.OrderBy(c => c.StartPositionTicks).ToList();
                 for (int i = 0; i < ordered.Count; i++) ordered[i].ChapterIndex = i;
                 _itemRepository.SaveChapters(movie.InternalId, ordered);
+
+                config.RemoveNotFound($"movie_{imdbId}");
 
                 IntroDbActivityLogger.Log(
                     movie.Name,

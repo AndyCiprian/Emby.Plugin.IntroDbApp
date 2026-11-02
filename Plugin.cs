@@ -13,14 +13,16 @@ namespace IntroDbApp
     public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages, IHasThumbImage
     {
         public static Plugin? Instance { get; private set; }
+        public IApplicationPaths AppPaths { get; }
 
         public override string Name => "IntroDB (introdb.app)";
-        public override string Description => "Complemento autónomo e híbrido v4.2.3 para la detección y salto universal de intros, créditos y escenas post-créditos mediante IntroDB.app.";
+        public override string Description => "Complemento autónomo e híbrido v4.3.0 para la detección y salto universal de intros, créditos y escenas post-créditos mediante IntroDB.app.";
         public override Guid Id => Guid.Parse("f62e84d1-817a-4c48-8cf9-a6f951e73792");
 
         public Plugin(IApplicationPaths applicationPaths, IXmlSerializer xmlSerializer)
             : base(applicationPaths, xmlSerializer)
         {
+            AppPaths = applicationPaths;
             Instance = this;
         }
 
@@ -60,6 +62,36 @@ namespace IntroDbApp
                 new PluginPageInfo
                 {
                     Name = "introdbjs_v423",
+                    EmbeddedResourcePath = GetType().Namespace + ".Web.introdb.js"
+                },
+                new PluginPageInfo
+                {
+                    Name = "introdbjs_v430",
+                    EmbeddedResourcePath = GetType().Namespace + ".Web.introdb.js"
+                },
+                new PluginPageInfo
+                {
+                    Name = "introdbjs_v431",
+                    EmbeddedResourcePath = GetType().Namespace + ".Web.introdb.js"
+                },
+                new PluginPageInfo
+                {
+                    Name = "introdbjs_v432",
+                    EmbeddedResourcePath = GetType().Namespace + ".Web.introdb.js"
+                },
+                new PluginPageInfo
+                {
+                    Name = "introdbjs_v433",
+                    EmbeddedResourcePath = GetType().Namespace + ".Web.introdb.js"
+                },
+                new PluginPageInfo
+                {
+                    Name = "introdbjs_v434",
+                    EmbeddedResourcePath = GetType().Namespace + ".Web.introdb.js"
+                },
+                new PluginPageInfo
+                {
+                    Name = "introdbjs_v435",
                     EmbeddedResourcePath = GetType().Namespace + ".Web.introdb.js"
                 }
             };

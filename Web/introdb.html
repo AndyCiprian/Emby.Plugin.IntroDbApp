@@ -1,7 +1,9 @@
-<div id="IntroDbConfigurationPage" data-role="page" class="page type-interior pluginConfigurationPage" data-controller="__plugin/introdbjs_v423">
+<div id="IntroDbConfigurationPage" data-role="page" class="page type-interior pluginConfigurationPage" data-controller="__plugin/introdbjs_v435">
     <style>
         #IntroDbConfigurationPage {
             color: inherit;
+            -webkit-backface-visibility: hidden;
+            backface-visibility: hidden;
         }
         #IntroDbConfigurationPage .introdb-card {
             background: rgba(128, 128, 128, 0.08);
@@ -31,6 +33,8 @@
             border-radius: 8px;
             overflow-x: auto;
             border: 1px solid var(--line-background, rgba(128, 128, 128, 0.25));
+            overscroll-behavior: contain;
+            -webkit-overflow-scrolling: touch;
         }
         #IntroDbConfigurationPage table.introdb-table {
             width: 100%;
@@ -73,7 +77,7 @@
             font-weight: 600;
             padding: 0.55em 1.2em;
             cursor: pointer;
-            transition: all 0.2s ease;
+            transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
         }
         #IntroDbConfigurationPage .introdb-tab-btn.active {
             background: rgba(82, 181, 75, 0.2);
@@ -110,6 +114,55 @@
             line-height: 1.45;
             color: inherit;
         }
+        #IntroDbConfigurationPage .marker-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 0.82em;
+            font-weight: 600;
+            margin-right: 5px;
+            margin-bottom: 3px;
+            line-height: 1.3;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+            white-space: nowrap;
+        }
+        #IntroDbConfigurationPage .marker-badge-intro {
+            background: #1d4ed8 !important;
+            color: #ffffff !important;
+            border: 1px solid #1e40af !important;
+        }
+        #IntroDbConfigurationPage .marker-badge-credits {
+            background: #d97706 !important;
+            color: #ffffff !important;
+            border: 1px solid #b45309 !important;
+        }
+        #IntroDbConfigurationPage .marker-badge-postcredits {
+            background: #7c3aed !important;
+            color: #ffffff !important;
+            border: 1px solid #6d28d9 !important;
+        }
+        #IntroDbConfigurationPage .marker-badge-none {
+            background: #475569 !important;
+            color: #ffffff !important;
+            border: 1px solid #334155 !important;
+        }
+        #IntroDbConfigurationPage .exclusion-item {
+            background: rgba(128, 128, 128, 0.08);
+            border: 1px solid var(--line-background, rgba(128, 128, 128, 0.22));
+            transition: background 0.15s ease, border-color 0.15s ease;
+        }
+        #IntroDbConfigurationPage .exclusion-item:hover {
+            background: rgba(128, 128, 128, 0.15);
+            border-color: rgba(128, 128, 128, 0.35);
+        }
+        #IntroDbConfigurationPage .exclusion-item.is-selected {
+            background: rgba(82, 181, 75, 0.14) !important;
+            border-color: rgba(82, 181, 75, 0.55) !important;
+        }
+        #IntroDbConfigurationPage #exclusionsContainer {
+            overscroll-behavior: contain;
+            -webkit-overflow-scrolling: touch;
+        }
     </style>
 
     <div data-role="content">
@@ -117,7 +170,7 @@
             <div class="verticalSection" style="margin-bottom: 1.5em;">
                 <div class="sectionTitleContainer flex align-items-center">
                     <h2 class="sectionTitle" style="margin: 0; font-size: 1.7em; font-weight: bold; letter-spacing: -0.5px;">
-                        IntroDB.app <span id="pluginVersionBadge" style="font-size: 0.55em; background: rgba(82, 181, 75, 0.18); color: #52B54B; border: 1px solid #52B54B; padding: 3px 10px; border-radius: 6px; vertical-align: middle; font-weight: bold;">v4.2.3 Universal</span>
+                        IntroDB.app <span id="pluginVersionBadge" style="font-size: 0.55em; background: rgba(82, 181, 75, 0.18); color: #52B54B; border: 1px solid #52B54B; padding: 3px 10px; border-radius: 6px; vertical-align: middle; font-weight: bold;">v4.3.0 Universal</span>
                     </h2>
                 </div>
                 <p class="fieldDescription" style="margin-top: 0.6em; font-size: 0.95em; line-height: 1.5;">
@@ -130,6 +183,7 @@
                 <button type="button" id="tabBtnConfig" class="introdb-tab-btn active">⚙️ Configuración</button>
                 <button type="button" id="tabBtnStats" class="introdb-tab-btn">📊 Métricas & Perfiles</button>
                 <button type="button" id="tabBtnTools" class="introdb-tab-btn">🛠️ Herramientas & Inspector</button>
+                <button type="button" id="tabBtnManager" class="introdb-tab-btn">🎬 Gestor & Respaldos</button>
                 <button type="button" id="tabBtnLogs" class="introdb-tab-btn">📜 Registro de Eventos</button>
             </div>
 
@@ -442,8 +496,11 @@
                                         <td id="statLastScannedItems" style="font-weight: bold; text-align: right;">0</td>
                                     </tr>
                                     <tr style="border-bottom: none;">
-                                        <td style="opacity: 0.85;">Elementos no registrados en IntroDB (Caché 404)</td>
-                                        <td id="statCached404" style="text-align: right;">0</td>
+                                        <td style="opacity: 0.85;">
+                                            Elementos no registrados en IntroDB (Caché 404)
+                                            <span style="display: block; font-size: 0.82em; opacity: 0.7; font-weight: normal;">🔄 Auto-expiración progresiva cada 14 días activa</span>
+                                        </td>
+                                        <td id="statCached404" style="text-align: right; font-weight: 600;">0</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -621,6 +678,222 @@
                             <span>🚀 Enviar a IntroDB.app</span>
                         </button>
                         <div id="subStatusMsg" style="font-size: 0.9em; font-weight: 500;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PESTAÑA: GESTOR & RESPALDOS -->
+            <div id="tabContentManager" style="display: none;">
+                <!-- Sección 1: Explorador & Editor Visual de Capítulos -->
+                <div class="verticalSection">
+                    <h3 class="sectionTitle" style="margin-bottom: 0.3em;">🎬 Explorador & Editor Visual de Capítulos</h3>
+                    <p class="fieldDescription" style="margin-bottom: 1em;">
+                        Explora los episodios de tus series, visualiza con precisión los marcadores de Intro, Créditos y Post-Créditos registrados en Emby y edita directamente las marcas de tiempo sin reiniciar ni recompilar.
+                    </p>
+
+                    <div class="introdb-card" style="margin-top: 0.5em;">
+                        <div style="display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap;">
+                            <div style="flex: 2; min-width: 250px;">
+                                <label class="inputLabel" for="managerSeriesSelect">Seleccionar Serie:</label>
+                                <select is="emby-select" id="managerSeriesSelect" class="emby-select" style="width: 100%;">
+                                    <option value="">Cargando series...</option>
+                                </select>
+                            </div>
+                            <div style="flex: 1; min-width: 180px;">
+                                <label class="inputLabel" for="managerSeriesFilter">Filtrar Series:</label>
+                                <input is="emby-input" type="text" id="managerSeriesFilter" class="emby-input" placeholder="🔍 Escribe para filtrar..." style="width: 100%;" />
+                            </div>
+                            <div>
+                                <button type="button" id="btnRefreshManagerSeries" class="raised emby-button" style="padding: 0.6em 1.1em; border-radius: 6px;" title="Recargar lista de series">
+                                    🔄 Actualizar
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Info de la serie seleccionada -->
+                        <div id="managerSeriesInfoBox" style="display: none; margin-top: 1em; padding: 0.8em 1em; background: rgba(128, 128, 128, 0.08); border-radius: 6px; border-left: 3px solid #52B54B;">
+                            <span id="managerSeriesTitleText" style="font-weight: bold; font-size: 1.05em;"></span>
+                            <span id="managerSeriesMetaText" style="margin-left: 12px; opacity: 0.8; font-size: 0.9em;"></span>
+                        </div>
+
+                        <!-- Editor en línea desplegable -->
+                        <div id="managerInlineEditorCard" class="introdb-card" style="display: none; margin-top: 1.2em; background: rgba(82, 181, 75, 0.06); border: 1px solid #52B54B;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.8em; flex-wrap: wrap; gap: 8px;">
+                                <h4 style="margin: 0; color: #52B54B; font-size: 1.1em;">✏️ Editando Marcas: <span id="lblEditEpisodeName" style="color: inherit;"></span></h4>
+                                <button type="button" id="btnCancelEpisodeEdit" class="raised emby-button" style="font-size: 0.8em; padding: 0.3em 0.8em; background: rgba(128,128,128,0.15);">✕ Cerrar</button>
+                            </div>
+                            <p style="font-size: 0.85em; opacity: 0.8; margin-top: 0; margin-bottom: 1em;">
+                                Introduce los segundos exactos de inicio y fin para cada segmento. Si dejas los campos en blanco o en 0, no se registrará esa marca.
+                            </p>
+
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px;">
+                                <!-- Intro -->
+                                <div style="background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.25); border-radius: 6px; padding: 10px;">
+                                    <div style="font-weight: bold; color: #60a5fa; margin-bottom: 8px;">🎬 Introducción (Intro)</div>
+                                    <div style="display: flex; gap: 8px;">
+                                        <div style="flex: 1;">
+                                            <label class="inputLabel" style="font-size: 0.8em;">Inicio (s):</label>
+                                            <input is="emby-input" type="number" id="numEditIntroStart" class="emby-input" placeholder="0" min="0" step="0.1" style="width: 100%;" />
+                                        </div>
+                                        <div style="flex: 1;">
+                                            <label class="inputLabel" style="font-size: 0.8em;">Fin (s):</label>
+                                            <input is="emby-input" type="number" id="numEditIntroEnd" class="emby-input" placeholder="0" min="0" step="0.1" style="width: 100%;" />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Créditos -->
+                                <div style="background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.25); border-radius: 6px; padding: 10px;">
+                                    <div style="font-weight: bold; color: #fbbf24; margin-bottom: 8px;">📜 Créditos Finales (Outro)</div>
+                                    <div style="display: flex; gap: 8px;">
+                                        <div style="flex: 1;">
+                                            <label class="inputLabel" style="font-size: 0.8em;">Inicio (s):</label>
+                                            <input is="emby-input" type="number" id="numEditCreditsStart" class="emby-input" placeholder="0" min="0" step="0.1" style="width: 100%;" />
+                                        </div>
+                                        <div style="flex: 1;">
+                                            <label class="inputLabel" style="font-size: 0.8em;">Fin (s):</label>
+                                            <input is="emby-input" type="number" id="numEditCreditsEnd" class="emby-input" placeholder="0" min="0" step="0.1" style="width: 100%;" />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Post-Créditos -->
+                                <div style="background: rgba(168, 85, 247, 0.08); border: 1px solid rgba(168, 85, 247, 0.25); border-radius: 6px; padding: 10px;">
+                                    <div style="font-weight: bold; color: #c084fc; margin-bottom: 8px;">✨ Escena Post-Créditos</div>
+                                    <div style="display: flex; gap: 8px;">
+                                        <div style="flex: 1;">
+                                            <label class="inputLabel" style="font-size: 0.8em;">Inicio (s):</label>
+                                            <input is="emby-input" type="number" id="numEditPostCreditsStart" class="emby-input" placeholder="0" min="0" step="0.1" style="width: 100%;" />
+                                        </div>
+                                        <div style="flex: 1;">
+                                            <label class="inputLabel" style="font-size: 0.8em;">Fin (s):</label>
+                                            <input is="emby-input" type="number" id="numEditPostCreditsEnd" class="emby-input" placeholder="0" min="0" step="0.1" style="width: 100%;" />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div style="margin-top: 1.2em; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                                <button type="button" id="btnSaveEpisodeChapters" class="raised emby-button" style="background: rgba(82, 181, 75, 0.25); color: #52B54B; border: 1px solid #52B54B; border-radius: 6px; padding: 0.6em 1.4em; font-weight: 600;">
+                                    💾 Guardar Capítulos en Emby
+                                </button>
+                                <span id="inlineEditorStatusMsg" style="font-size: 0.9em; font-weight: 500;"></span>
+                            </div>
+                        </div>
+
+                        <!-- Tabla de episodios -->
+                        <div class="introdb-table-container" style="margin-top: 1.2em; max-height: 480px; overflow-y: auto;">
+                            <table class="introdb-table">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 100px;">Episodio</th>
+                                        <th>Título</th>
+                                        <th style="width: 90px;">Duración</th>
+                                        <th>Marcadores Actuales</th>
+                                        <th style="width: 100px; text-align: center;">Acción</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="managerEpisodesTableBody">
+                                    <tr>
+                                        <td colspan="5" style="padding: 18px; text-align: center; opacity: 0.6;">
+                                            Selecciona una serie arriba para listar y editar sus episodios.
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sección 2: Respaldo & Restauración de Marcadores (JSON) -->
+                <div class="verticalSection" style="margin-top: 2em;">
+                    <h3 class="sectionTitle" style="margin-bottom: 0.3em;">📦 Respaldo & Restauración de Marcadores (JSON)</h3>
+                    <p class="fieldDescription" style="margin-bottom: 1em;">
+                        Exporta la totalidad de los marcadores de tu biblioteca (intros, créditos y post-créditos) a un archivo JSON legible e independiente. Puedes restaurarlo en cualquier momento ante reconstrucciones de biblioteca o migración de servidor.
+                    </p>
+
+                    <div class="introdb-card" style="margin-top: 0.5em;">
+                        <!-- Exportar -->
+                        <div>
+                            <h4 style="margin: 0 0 0.5em 0; font-size: 1.05em;">💾 Exportar Respaldo</h4>
+                            <p style="font-size: 0.85em; opacity: 0.8; margin-top: 0; margin-bottom: 0.8em;">
+                                Indica el directorio del servidor donde se guardará el archivo JSON. Puedes usar la lupa para navegar por las carpetas o escribir la ruta manualmente.
+                            </p>
+                            <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                                <div style="flex: 1; min-width: 260px;">
+                                    <input is="emby-input" type="text" id="txtBackupPath" class="emby-input" placeholder="Ej: Carpeta de respaldos del servidor (o pulsa Explorar)" style="width: 100%;" />
+                                </div>
+                                <button type="button" id="btnBrowseBackupPath" class="raised emby-button" style="border-radius: 6px; padding: 0.6em 1em;" title="Explorar carpetas del servidor">
+                                    🔍 Explorar
+                                </button>
+                                <button type="button" id="btnExportBackup" class="raised emby-button" style="background: rgba(82, 181, 75, 0.25); color: #52B54B; border: 1px solid #52B54B; border-radius: 6px; padding: 0.6em 1.4em; font-weight: 600;">
+                                    💾 Exportar Respaldo JSON
+                                </button>
+                            </div>
+                            <div style="margin-top: 0.6em; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                                <div style="font-size: 0.85em; opacity: 0.8;">
+                                    Último respaldo: <span id="lblLastBackupDate" style="font-weight: 600; color: #52B54B;">Nunca</span> (<span id="lblLastBackupCount">0</span> elementos)
+                                </div>
+                                <div id="exportStatusMsg" style="font-size: 0.9em; font-weight: 500;"></div>
+                            </div>
+                        </div>
+
+                        <hr style="border: 0; border-top: 1px solid var(--line-background, rgba(128, 128, 128, 0.2)); margin: 1.5em 0;" />
+
+                        <!-- Importar -->
+                        <div>
+                            <h4 style="margin: 0 0 0.5em 0; font-size: 1.05em;">📥 Restaurar Respaldo</h4>
+                            <p style="font-size: 0.85em; opacity: 0.8; margin-top: 0; margin-bottom: 0.8em;">
+                                Selecciona un archivo de respaldo previo (.json) para reinyectar los marcadores en los episodios y películas coincidentes de tu biblioteca.
+                            </p>
+                            <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                                <div style="flex: 1; min-width: 260px;">
+                                    <input is="emby-input" type="text" id="txtImportPath" class="emby-input" placeholder="Ej: Archivo de respaldo .json (o pulsa Explorar)" style="width: 100%;" />
+                                </div>
+                                <button type="button" id="btnBrowseImportFile" class="raised emby-button" style="border-radius: 6px; padding: 0.6em 1em;" title="Explorar archivo de respaldo en el servidor">
+                                    🔍 Explorar
+                                </button>
+                                <button type="button" id="btnImportBackup" class="raised emby-button" style="background: rgba(59, 130, 246, 0.25); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.5); border-radius: 6px; padding: 0.6em 1.4em; font-weight: 600;">
+                                    📥 Restaurar Marcadores
+                                </button>
+                            </div>
+                            <div id="importStatusMsg" style="margin-top: 0.6em; font-size: 0.9em; font-weight: 500;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sección 3: Lista de Exclusiones de Salto (Auto-Skip) -->
+                <div class="verticalSection" style="margin-top: 2em;">
+                    <h3 class="sectionTitle" style="margin-bottom: 0.3em;">🚫 Lista de Exclusiones de Salto (Auto-Skip)</h3>
+                    <p class="fieldDescription" style="margin-bottom: 1em;">
+                        Las series marcadas a continuación nunca realizarán saltos automáticos en tiempo real ni remitirán telemetría de reproducción. Los marcadores seguirán visibles en la barra de tiempo pero el reproductor no saltará de manera autónoma.
+                    </p>
+
+                    <div class="introdb-card" style="margin-top: 0.5em;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                            <div style="min-width: 250px;">
+                                <input is="emby-input" type="text" id="txtSearchExclusions" class="emby-input" placeholder="🔍 Buscar series para excluir..." style="width: 100%;" />
+                            </div>
+                            <div style="display: flex; gap: 8px;">
+                                <button type="button" id="btnExclusionsSelectAll" class="raised emby-button" style="font-size: 0.85em; padding: 0.4em 0.8em; border-radius: 6px;">
+                                    Seleccionar Todos
+                                </button>
+                                <button type="button" id="btnExclusionsDeselectAll" class="raised emby-button" style="font-size: 0.85em; padding: 0.4em 0.8em; border-radius: 6px; background: rgba(128,128,128,0.12);">
+                                    Deseleccionar Todos
+                                </button>
+                            </div>
+                        </div>
+
+                        <div id="exclusionsContainer" style="margin-top: 1em; max-height: 280px; overflow-y: auto; border: 1px solid var(--line-background, rgba(128, 128, 128, 0.25)); border-radius: 6px; padding: 12px; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px;">
+                            <div style="grid-column: 1 / -1; text-align: center; opacity: 0.6; padding: 15px;">Cargando lista de series...</div>
+                        </div>
+
+                        <div style="margin-top: 1.2em; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                            <button type="button" id="btnSaveExclusions" class="raised emby-button" style="background: rgba(82, 181, 75, 0.25); color: #52B54B; border: 1px solid #52B54B; border-radius: 6px; padding: 0.6em 1.4em; font-weight: 600;">
+                                💾 Guardar Exclusiones
+                            </button>
+                            <span id="exclusionsStatusMsg" style="font-size: 0.9em; font-weight: 500;"></span>
+                        </div>
                     </div>
                 </div>
             </div>

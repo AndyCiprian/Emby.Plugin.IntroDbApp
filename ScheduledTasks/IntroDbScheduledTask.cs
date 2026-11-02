@@ -58,9 +58,11 @@ namespace IntroDbApp.ScheduledTasks
             }
 
             var startTime = DateTime.Now;
-            string mode = config?.OperationMode ?? "IntroDbPrimary";
+            string mode = config?.OperationMode ?? "Hybrid";
             _logger.Info($"IntroDB.app: Iniciando escaneo en Modo '{mode}'...");
-            IntroDbActivityLogger.Log("Escaneo Iniciado", $"Modo: {mode}", "info");
+
+            // Normalización progresiva de la caché 404
+            config?.NormalizeNotFoundCache();
 
             var episodes = _libraryManager.GetItemList(new InternalItemsQuery
             {
@@ -69,8 +71,13 @@ namespace IntroDbApp.ScheduledTasks
                 Recursive = true
             }).OfType<Episode>().ToList();
 
+            IntroDbActivityLogger.Log("Escaneo de Biblioteca", "Escaneo Iniciado", "info", $"Modo: {mode} | Analizando {episodes.Count} episodios en biblioteca.");
+
             int totalEpisodes = episodes.Count;
-            int scannedEpisodes = 0;
+            int skippedHybrid = 0;
+            int skippedNotFound = 0;
+            int skippedNoImdb = 0;
+            int apiQueriesMade = 0;
             int newIntros = 0;
             int newCredits = 0;
             int newPostCredits = 0;
@@ -78,10 +85,9 @@ namespace IntroDbApp.ScheduledTasks
             int episodesWithIntro = 0;
             int episodesWithCredits = 0;
 
-            if (config != null && config.NotFoundIds == null)
-            {
-                config.NotFoundIds = new List<string>();
-            }
+            int recheckedExpiredCount = 0;
+            int maxDailyRechecks = Math.Min(config?.MaxDailyRechecks ?? 30, Math.Max(10, (config?.ApiRateLimitRemaining ?? 100) / 3));
+            int recoveredFromCacheCount = 0;
 
             for (int i = 0; i < totalEpisodes; i++)
             {
@@ -100,7 +106,8 @@ namespace IntroDbApp.ScheduledTasks
                     // En modo TheIntroDB Primero (Hybrid), si ya tiene ambos, no se consulta
                     if (mode == "Hybrid" && hasIntro && hasCredits)
                     {
-                        continue;
+                        skippedHybrid++;
+                        goto EpisodeDone;
                     }
 
                     var series = ep.Series;
@@ -108,26 +115,68 @@ namespace IntroDbApp.ScheduledTasks
 
                     if (string.IsNullOrWhiteSpace(imdbId))
                     {
-                        continue;
+                        skippedNoImdb++;
+                        goto EpisodeDone;
                     }
 
                     int season = ep.ParentIndexNumber ?? 1;
                     int episodeNum = ep.IndexNumber ?? 1;
                     string cacheKey = $"{imdbId}_S{season}E{episodeNum}";
 
-                    if (config?.NotFoundIds.Contains(cacheKey) == true && mode != "Overwrite")
+                    DateTime cachedDate = DateTime.MinValue;
+                    bool isCached = config != null && config.TryGetNotFoundEntry(cacheKey, out cachedDate, out _);
+                    bool shouldQuery = false;
+
+                    if (mode == "Overwrite")
                     {
-                        continue;
+                        shouldQuery = true;
+                    }
+                    else if (!isCached)
+                    {
+                        shouldQuery = true;
+                    }
+                    else
+                    {
+                        // Está en caché 404: verificar si expiró su TTL progresivo
+                        int ttl = config?.CacheTtlDays ?? 14;
+                        bool isExpired = (DateTime.UtcNow - cachedDate) >= TimeSpan.FromDays(ttl);
+                        if (isExpired && recheckedExpiredCount < maxDailyRechecks)
+                        {
+                            shouldQuery = true;
+                            recheckedExpiredCount++;
+                        }
                     }
 
+                    if (!shouldQuery)
+                    {
+                        skippedNotFound++;
+                        goto EpisodeDone;
+                    }
+
+                    apiQueriesMade++;
                     var segments = await _apiClient.GetEpisodeSegmentsAsync(imdbId, season, episodeNum, cancellationToken).ConfigureAwait(false);
                     if (segments == null || (segments.Intro == null && segments.Outro == null))
                     {
-                        if (config != null && !config.NotFoundIds.Contains(cacheKey))
+                        if (config != null)
                         {
-                            config.NotFoundIds.Add(cacheKey);
+                            config.AddOrUpdateNotFound(cacheKey);
                         }
-                        continue;
+                        goto EpisodeDone;
+                    }
+
+                    // Se encontraron segmentos: si estaba en el índice 404, se libera
+                    if (isCached && config != null)
+                    {
+                        if (config.RemoveNotFound(cacheKey))
+                        {
+                            recoveredFromCacheCount++;
+                            IntroDbActivityLogger.Log(
+                                $"{ep.SeriesName} S{season}E{episodeNum}",
+                                "Marcador Recuperado (TTL)",
+                                "success",
+                                $"Segmento aportado encontrado tras expirar 14 días. Elemento liberado del índice 404."
+                            );
+                        }
                     }
 
                     bool modified = false;
@@ -212,14 +261,26 @@ namespace IntroDbApp.ScheduledTasks
                         for (int cIdx = 0; cIdx < ordered.Count; cIdx++) ordered[cIdx].ChapterIndex = cIdx;
 
                         _itemRepository.SaveChapters(ep.InternalId, ordered);
-                        IntroDbActivityLogger.Log($"{ep.SeriesName} S{season}E{episodeNum}", "Marcas actualizadas", "success");
+                        string details = $"{(applyIntro ? "Intro " : "")}{(applyCredits ? "Créditos" : "")}".Trim();
+                        IntroDbActivityLogger.Log($"{ep.SeriesName} S{season}E{episodeNum}", "Marcas inyectadas", "success", $"Inyectado con éxito: {details}");
                     }
-
-                    scannedEpisodes++;
                 }
                 catch (Exception ex)
                 {
                     _logger.Error($"IntroDB.app: Error en episodio {ep.Name}: {ex.Message}");
+                }
+
+            EpisodeDone:
+                // Hitos de progreso: registrar cada 200 episodios o al llegar al total
+                if ((i + 1) % 200 == 0 || (i + 1) == totalEpisodes)
+                {
+                    int pct = totalEpisodes > 0 ? ((i + 1) * 100) / totalEpisodes : 100;
+                    IntroDbActivityLogger.Log(
+                        "Progreso de Escaneo",
+                        $"{i + 1}/{totalEpisodes} episodios verificados ({pct}%)",
+                        "info",
+                        $"Intros: {episodesWithIntro} (+{newIntros}) | Créditos: {episodesWithCredits} (+{newCredits}) | En caché/completos: {skippedHybrid + skippedNotFound} | Consultas API: {apiQueriesMade}"
+                    );
                 }
 
                 progress?.Report((double)(i + 1) / totalEpisodes * (config?.ScanMovies == true ? 80.0 : 100.0));
@@ -236,6 +297,10 @@ namespace IntroDbApp.ScheduledTasks
                 }).OfType<Movie>().ToList();
 
                 int totalMovies = movies.Count;
+                if (totalMovies > 0)
+                {
+                    IntroDbActivityLogger.Log("Escaneo de Películas", "Inicio de Escaneo", "info", $"Analizando {totalMovies} películas en biblioteca.");
+                }
 
                 for (int m = 0; m < totalMovies; m++)
                 {
@@ -249,29 +314,66 @@ namespace IntroDbApp.ScheduledTasks
 
                         if (mode == "Hybrid" && hasCredits)
                         {
-                            continue;
+                            goto MovieDone;
                         }
 
                         var imdbId = movie.GetProviderId(MetadataProviders.Imdb);
                         if (string.IsNullOrWhiteSpace(imdbId))
                         {
-                            continue;
+                            goto MovieDone;
                         }
 
                         string cacheKey = $"movie_{imdbId}";
-                        if (config?.NotFoundIds.Contains(cacheKey) == true && mode != "Overwrite")
+                        DateTime cachedDate = DateTime.MinValue;
+                    bool isCached = config != null && config.TryGetNotFoundEntry(cacheKey, out cachedDate, out _);
+                        bool shouldQuery = false;
+
+                        if (mode == "Overwrite")
                         {
-                            continue;
+                            shouldQuery = true;
+                        }
+                        else if (!isCached)
+                        {
+                            shouldQuery = true;
+                        }
+                        else
+                        {
+                            int ttl = config?.CacheTtlDays ?? 14;
+                            bool isExpired = (DateTime.UtcNow - cachedDate) >= TimeSpan.FromDays(ttl);
+                            if (isExpired && recheckedExpiredCount < maxDailyRechecks)
+                            {
+                                shouldQuery = true;
+                                recheckedExpiredCount++;
+                            }
+                        }
+
+                        if (!shouldQuery)
+                        {
+                            goto MovieDone;
                         }
 
                         var segments = await _apiClient.GetMovieSegmentsAsync(imdbId, cancellationToken).ConfigureAwait(false);
                         if (segments == null || (segments.Outro == null && segments.PostCredits == null))
                         {
-                            if (config != null && !config.NotFoundIds.Contains(cacheKey))
+                            if (config != null)
                             {
-                                config.NotFoundIds.Add(cacheKey);
+                                config.AddOrUpdateNotFound(cacheKey);
                             }
-                            continue;
+                            goto MovieDone;
+                        }
+
+                        if (isCached && config != null)
+                        {
+                            if (config.RemoveNotFound(cacheKey))
+                            {
+                                recoveredFromCacheCount++;
+                                IntroDbActivityLogger.Log(
+                                    movie.Name,
+                                    "Marcador Recuperado (TTL)",
+                                    "success",
+                                    $"Película encontrada tras expirar 14 días. Elemento liberado del índice 404."
+                                );
+                            }
                         }
 
                         bool modified = false;
@@ -323,7 +425,7 @@ namespace IntroDbApp.ScheduledTasks
                             for (int cIdx = 0; cIdx < ordered.Count; cIdx++) ordered[cIdx].ChapterIndex = cIdx;
 
                             _itemRepository.SaveChapters(movie.InternalId, ordered);
-                            IntroDbActivityLogger.Log(movie.Name, "Película actualizada con créditos/post-créditos", "success");
+                            IntroDbActivityLogger.Log(movie.Name, "Película actualizada", "success", $"Créditos: {segments.Outro != null}, Post-Créditos: {segments.PostCredits != null}");
                         }
                     }
                     catch (Exception ex)
@@ -331,6 +433,11 @@ namespace IntroDbApp.ScheduledTasks
                         _logger.Error($"IntroDB.app: Error en película {movie.Name}: {ex.Message}");
                     }
 
+                MovieDone:
+                    if (totalMovies > 0 && ((m + 1) % 50 == 0 || (m + 1) == totalMovies))
+                    {
+                        IntroDbActivityLogger.Log("Progreso Películas", $"{m + 1}/{totalMovies} películas verificadas", "info");
+                    }
                     progress?.Report(80.0 + ((double)(m + 1) / totalMovies * 20.0));
                 }
             }
@@ -340,7 +447,7 @@ namespace IntroDbApp.ScheduledTasks
             if (config != null)
             {
                 config.LastScanStatus = $"Completado el {DateTime.Now:yyyy-MM-dd HH:mm:ss} (Duración: {elapsed.TotalSeconds:F0}s)";
-                config.ScannedItemsCount = scannedEpisodes;
+                config.ScannedItemsCount = totalEpisodes;
                 config.AddedIntrosCount += newIntros;
                 config.AddedCreditsCount += newCredits;
                 config.AddedPostCreditsCount += newPostCredits;
@@ -356,8 +463,9 @@ namespace IntroDbApp.ScheduledTasks
 
             IntroDbActivityLogger.Log(
                 "Escaneo Finalizado",
-                $"Nuevos intros: {newIntros}, Nuevos créditos: {newCredits}, Post-créditos: {newPostCredits} ({elapsed.TotalSeconds:F0}s)",
-                "success"
+                $"Completado en {elapsed.TotalSeconds:F0}s",
+                "success",
+                $"Total biblioteca: {totalEpisodes} eps | Intros: {episodesWithIntro} (+{newIntros} nuevos) | Créditos: {episodesWithCredits} (+{newCredits} nuevos) | Revalidados por TTL: {recheckedExpiredCount} (Recuperados: {recoveredFromCacheCount}) | Caché 404 activa: {config?.GetNotFoundCount() ?? 0}"
             );
 
             _logger.Info($"IntroDB.app: Escaneo finalizado en {elapsed.TotalSeconds:F0}s. Intros: +{newIntros}, Créditos: +{newCredits}, Post-Créditos: +{newPostCredits}");
